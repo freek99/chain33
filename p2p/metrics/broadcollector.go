@@ -29,11 +29,20 @@ func (bc *BroadcastCollector) SetEnabled(enable bool) {
 	bc.enable = enable
 }
 
+func (bc *BroadcastCollector) IsEnabled() bool {
+	return bc.enable
+}
+
+func (bc *BroadcastCollector) Len() int {
+	return bc.data.Len()
+}
+
 func (bc *BroadcastCollector) Add(item *pb.PeersBroadInfo) {
 	if bc.enable {
 		bc.data.Add(bc.getKey(item), item)
 	}
 }
+
 
 func (bc *BroadcastCollector) Get(itemID string) []*pb.PeersBroadInfo {
 

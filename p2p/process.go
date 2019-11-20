@@ -56,12 +56,40 @@ func (n *Node) processRecvP2P(data *types.BroadCastData, pid string, pubPeerFunc
 	}
 	handled = true
 	if tx := data.GetTx(); tx != nil {
+		n.bcCollector.Add(&types.PeersBroadInfo{
+			"0x" + hex.EncodeToString(tx.GetTx().Hash()),
+			peerAddr,
+			n.nodeInfo.listenAddr.String(),
+			int32(tx.GetTx().Size()),
+			time.Now().UnixNano(),
+		})
 		n.recvTx(tx, pid, peerAddr)
 	} else if ltTx := data.GetLtTx(); ltTx != nil {
+		n.bcCollector.Add(&types.PeersBroadInfo{
+			"0x" + hex.EncodeToString(ltTx.TxHash),
+			peerAddr,
+			n.nodeInfo.listenAddr.String(),
+			0,
+			time.Now().UnixNano(),
+		})
 		n.recvLtTx(ltTx, pid, peerAddr, pubPeerFunc)
 	} else if ltBlc := data.GetLtBlock(); ltBlc != nil {
+		n.bcCollector.Add(&types.PeersBroadInfo{
+			"0x" + hex.EncodeToString(ltBlc.Header.Hash),
+			peerAddr,
+			n.nodeInfo.listenAddr.String(),
+			0,
+			time.Now().UnixNano(),
+		})
 		n.recvLtBlock(ltBlc, pid, peerAddr, pubPeerFunc)
 	} else if blc := data.GetBlock(); blc != nil {
+		n.bcCollector.Add(&types.PeersBroadInfo{
+			"0x" + hex.EncodeToString(blc.GetBlock().Hash(n.cfg)),
+			peerAddr,
+			n.nodeInfo.listenAddr.String(),
+			int32(blc.GetBlock().Size()),
+			time.Now().UnixNano(),
+		})
 		n.recvBlock(blc, pid, peerAddr)
 	} else if query := data.GetQuery(); query != nil {
 		n.recvQueryData(query, pid, peerAddr, pubPeerFunc)

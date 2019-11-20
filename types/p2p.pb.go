@@ -144,6 +144,33 @@ func (m *P2PPeerInfo) GetHeader() *Header {
 	return nil
 }
 
+type PeersBroadInfoReply struct {
+	Infos []*PeersBroadInfo `protobuf:"bytes,1,rep,name=infos" json:"infos,omitempty"`
+}
+
+func (m *PeersBroadInfoReply) Reset()         { *m = PeersBroadInfoReply{} }
+func (m *PeersBroadInfoReply) String() string { return proto.CompactTextString(m) }
+func (*PeersBroadInfoReply) ProtoMessage()    {}
+
+func (m *PeersBroadInfoReply) GetInfos() []*PeersBroadInfo {
+	if m != nil {
+		return m.Infos
+	}
+	return nil
+}
+
+type PeersBroadInfo struct {
+	Hash         string `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
+	SrcIPPort string `protobuf:"bytes,2,opt,name=srcIPPort" json:"srcIPPort,omitempty"`
+	DstIPPort     string `protobuf:"bytes,3,opt,name=dstIPPort" json:"dstIPPort,omitempty"`
+	Size         int32  `protobuf:"varint,4,opt,name=size" json:"size,omitempty"`
+	RecvTime     int64  `protobuf:"varint,5,opt,name=recvtime" json:"recvtime,omitempty"`
+}
+
+func (m *PeersBroadInfo) Reset()         { *m = PeersBroadInfo{} }
+func (m *PeersBroadInfo) String() string { return proto.CompactTextString(m) }
+func (*PeersBroadInfo) ProtoMessage()    {}
+
 // *
 // p2p节点间发送版本数据结构
 type P2PVersion struct {
@@ -2394,6 +2421,8 @@ func init() {
 	proto.RegisterType((*NodeNetInfo)(nil), "types.NodeNetInfo")
 	proto.RegisterType((*PeersReply)(nil), "types.PeersReply")
 	proto.RegisterType((*PeersInfo)(nil), "types.PeersInfo")
+	proto.RegisterType((*PeersBroadInfoReply)(nil), "types.PeersBroadInfoReply")
+	proto.RegisterType((*PeersBroadInfo)(nil), "types.PeersBroadInfo")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -2440,6 +2469,7 @@ type P2PgserviceClient interface {
 	// grpc 收集inpeers
 	CollectInPeers(ctx context.Context, in *P2PPing, opts ...grpc.CallOption) (*PeerList, error)
 	CollectInPeers2(ctx context.Context, in *P2PPing, opts ...grpc.CallOption) (*PeersReply, error)
+	GetBroadcastData(ctx context.Context, in *P2PPing, opts ...grpc.CallOption) (*PeersBroadInfoReply, error)
 }
 
 type p2PgserviceClient struct {
@@ -2674,6 +2704,15 @@ func (c *p2PgserviceClient) CollectInPeers2(ctx context.Context, in *P2PPing, op
 	return out, nil
 }
 
+func (c *p2PgserviceClient) GetBroadcastData(ctx context.Context, in *P2PPing, opts ...grpc.CallOption) (*PeersBroadInfoReply, error) {
+	out := new(PeersBroadInfoReply)
+	err := c.cc.Invoke(ctx, "/types.p2pgservice/GetBroadcastData", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // P2PgserviceServer is the server API for P2Pgservice service.
 type P2PgserviceServer interface {
 	// 广播交易
@@ -2708,6 +2747,7 @@ type P2PgserviceServer interface {
 	// grpc 收集inpeers
 	CollectInPeers(context.Context, *P2PPing) (*PeerList, error)
 	CollectInPeers2(context.Context, *P2PPing) (*PeersReply, error)
+	GetBroadcastData(context.Context, *P2PPing) (*PeersBroadInfoReply, error)
 }
 
 func RegisterP2PgserviceServer(s *grpc.Server, srv P2PgserviceServer) {
@@ -3034,6 +3074,24 @@ func _P2Pgservice_CollectInPeers2_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _P2Pgservice_GetBroadcastData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(P2PPing)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PgserviceServer).GetBroadcastData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/types.p2pgservice/GetBroadcastData",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PgserviceServer).GetBroadcastData(ctx, req.(*P2PPing))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _P2Pgservice_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "types.p2pgservice",
 	HandlerType: (*P2PgserviceServer)(nil),
@@ -3093,6 +3151,10 @@ var _P2Pgservice_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CollectInPeers2",
 			Handler:    _P2Pgservice_CollectInPeers2_Handler,
+		},
+		{
+			MethodName: "GetBroadcastData",
+			Handler:    _P2Pgservice_GetBroadcastData_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

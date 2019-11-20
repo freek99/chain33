@@ -6,6 +6,7 @@ package p2p
 
 import (
 	"fmt"
+	"github.com/33cn/chain33/p2p/metrics"
 	"math/rand"
 
 	//"strings"
@@ -79,6 +80,7 @@ type Node struct {
 	closed     int32
 	pubsub     *pubsub.PubSub
 	cfg        *types.Chain33Config
+	bcCollector metrics.BroadcastCollector
 }
 
 // SetQueueClient return client for nodeinfo
@@ -94,6 +96,7 @@ func NewNode(cfg *types.Chain33Config) (*Node, error) {
 		cacheBound: make(map[string]*Peer),
 		pubsub:     pubsub.NewPubSub(10200),
 	}
+	node.bcCollector.Init()
 	node.listenPort = 13802
 	if mcfg.Port != 0 && mcfg.Port <= 65535 && mcfg.Port > 1024 {
 		node.listenPort = int(mcfg.Port)

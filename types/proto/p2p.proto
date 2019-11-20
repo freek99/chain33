@@ -51,6 +51,7 @@ service p2pgservice {
     // grpc 收集inpeers
     rpc CollectInPeers(P2PPing) returns (PeerList) {}
     rpc CollectInPeers2(P2PPing) returns (PeersReply) {}
+    rpc GetBroadcastData(P2PPing) returns (PeersBroadInfoReply) {}
 }
 
 /**
@@ -371,4 +372,20 @@ message PeersInfo {
     int32  port        = 3;
     string softversion = 4;
     int32  p2pversion  = 5;
+}
+
+/**
+ * p2p节点扫描返回的广播数据
+ */
+
+message PeersBroadInfoReply {
+    repeated PeersBroadInfo infos = 1;
+}
+
+message PeersBroadInfo {
+    string Hash  =1;
+    string SrcIPPort = 2;
+    string DstIPPort = 3;
+    int32  Size  = 4;
+    int64  RecvTime = 5;
 }

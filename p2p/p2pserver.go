@@ -6,6 +6,7 @@ package p2p
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -568,6 +569,25 @@ func (s *P2pserver) CollectInPeers2(ctx context.Context, in *pb.P2PPing) (*pb.Pe
 
 	return &pb.PeersReply{Peers: p2pPeers}, nil
 }
+
+
+// GetBroadcastData collect broadcast data
+func (s *P2pserver) GetBroadcastData(ctx context.Context, in *pb.P2PPing) (*pb.PeersBroadInfoReply, error) {
+	//log.Info("GetBroadcastData")
+	//if !P2pComm.CheckSign(in) {
+	//	log.Info("GetBroadcastData", "ping", "signatrue err")
+	//	return nil, pb.ErrPing
+	//}
+
+	data := s.node.bcCollector.Get(in.Addr)
+
+	if len(data) <= 0 {
+		return nil, errors.New("no more info ")
+	}
+
+	return &pb.PeersBroadInfoReply{Infos: data}, nil
+}
+
 
 func (s *P2pserver) loadMempool() (map[string]*pb.Transaction, error) {
 

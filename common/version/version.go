@@ -5,7 +5,7 @@
 // Package version 软件版本号
 package version
 
-const version = "6.2.0"
+const version = "6.3.0"
 
 //var
 var (
@@ -23,7 +23,7 @@ var (
 //GetLocalDBKeyList 获取本地key列表
 func GetLocalDBKeyList() [][]byte {
 	return [][]byte{
-		WalletVerKey, BlockChainVerKey, LocalDBMeta, MavlTreeVerKey,
+		WalletVerKey, BlockChainVerKey, LocalDBMeta, StoreDBMeta, MavlTreeVerKey,
 	}
 }
 

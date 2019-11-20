@@ -53,7 +53,7 @@ func (m *mockWallet) SetQueueClient(q queue.Queue) {
 				}
 			case types.EventWalletSendToAddress:
 				if req, ok := msg.GetData().(*types.ReqWalletSendToAddress); ok {
-					if string(req.Note) == "case1" {
+					if req.Note == "case1" {
 						msg.Reply(client.NewMessage(walletKey, types.EventReplyHashes, &types.Transaction{}))
 					} else {
 						msg.Reply(client.NewMessage(walletKey, types.EventReplyHashes, &types.ReplyHash{}))
@@ -173,6 +173,8 @@ func (m *mockWallet) SetQueueClient(q queue.Queue) {
 				}
 			case types.EventFatalFailure:
 				msg.Reply(client.NewMessage(walletKey, types.EventReplyFatalFailure, &types.Int32{}))
+			case types.EventWalletExecutor:
+				msg.Reply(client.NewMessage(walletKey, types.EventReply, &types.Reply{}))
 			default:
 				msg.ReplyErr("Do not support", types.ErrNotSupport)
 			}

@@ -21,11 +21,11 @@ type QueueProtocolAPI interface {
 	// types.EventTxList
 	GetTxList(param *types.TxHashList) (*types.ReplyTxList, error)
 	// types.EventGetMempool
-	GetMempool() (*types.ReplyTxList, error)
+	GetMempool(req *types.ReqGetMempool) (*types.ReplyTxList, error)
 	// types.EventGetLastMempool
 	GetLastMempool() (*types.ReplyTxList, error)
 	// types.EventGetProperFee
-	GetProperFee() (*types.ReplyProperFee, error)
+	GetProperFee(req *types.ReqProperFee) (*types.ReplyProperFee, error)
 	// +++++++++++++++ execs interfaces begin
 	// types.EventBlockChainQuery
 	Query(driver, funcname string, param types.Message) (types.Message, error)
@@ -137,7 +137,12 @@ type QueueProtocolAPI interface {
 	// --------------- blockchain interfaces end
 
 	// +++++++++++++++ store interfaces begin
+	StoreSet(param *types.StoreSetWithSync) (*types.ReplyHash, error)
 	StoreGet(*types.StoreGet) (*types.StoreReplyValue, error)
+	StoreMemSet(param *types.StoreSetWithSync) (*types.ReplyHash, error)
+	StoreCommit(param *types.ReqHash) (*types.ReplyHash, error)
+	StoreRollback(param *types.ReqHash) (*types.ReplyHash, error)
+	StoreDel(param *types.StoreDel) (*types.ReplyHash, error)
 	StoreGetTotalCoins(*types.IterateRangeByStateHash) (*types.ReplyGetTotalCoins, error)
 	StoreList(param *types.StoreList) (*types.StoreListReply, error)
 	// --------------- store interfaces end
@@ -153,4 +158,9 @@ type QueueProtocolAPI interface {
 	ListSeqCallBack() (*types.BlockSeqCBs, error)
 	// types.EventGetSeqCBLastNum
 	GetSeqCallBackLastNum(param *types.ReqString) (*types.Int64, error)
+	// types.EventGetParaTxByTitle
+	GetParaTxByTitle(param *types.ReqParaTxByTitle) (*types.ParaTxDetails, error)
+
+	// get chain config
+	GetConfig() *types.Chain33Config
 }

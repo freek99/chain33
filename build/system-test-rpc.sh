@@ -18,48 +18,36 @@ echo_rst() {
         echo -e "${GRE}$1 not support${NOC}"
     else
         echo -e "${RED}$1 fail${NOC}"
+        echo -e "${RED}$3 ${NOC}"
         CASE_ERR="err"
     fi
+}
 
+http_req() {
+    echo "#request: $1"
+    body=$(curl -ksd "$1" "$2")
+    ok=$(echo "$body" | jq -r "$3")
+    [ "$ok" == true ]
+    rst=$?
+    echo_rst "$4" "$rst" "$body"
 }
 
 chain33_lock() {
-    ok=$(curl -ksd '{"method":"Chain33.Lock","params":[]}' ${MAIN_HTTP} | jq -r ".result.isOK")
-    [ "$ok" == true ]
-    rst=$?
-    echo_rst "$FUNCNAME" "$rst"
+    http_req '{"method":"Chain33.Lock","params":[]}' ${MAIN_HTTP} ".result.isOK" "$FUNCNAME"
 }
 
 chain33_unlock() {
-    ok=$(curl -ksd '{"method":"Chain33.UnLock","params":[{"passwd":"1314fuzamei","timeout":0}]}' ${MAIN_HTTP} | jq -r ".result.isOK")
-    [ "$ok" == true ]
-    rst=$?
-    echo_rst "$FUNCNAME" "$rst"
-
+    http_req '{"method":"Chain33.UnLock","params":[{"passwd":"1314fuzamei","timeout":0}]}' ${MAIN_HTTP} ".result.isOK" "$FUNCNAME"
 }
 
 chain33_WalletTxList() {
-
-    req='"method":"Chain33.WalletTxList", "params":[{"fromTx":"", "count":2, "direction":1}]'
-    echo "#request: $req"
-    resp=$(curl -ksd "{$req}" "$1")
-    #    echo "#response: $resp"
-    ok=$(jq '(.error|not) and (.result.txDetails|length == 2)' <<<"$resp")
-    [ "$ok" == true ]
-    echo_rst "$FUNCNAME" "$?"
-
+    req='{"method":"Chain33.WalletTxList", "params":[{"fromTx":"", "count":2, "direction":1}]}'
+    http_req "$req" ${MAIN_HTTP} '(.error|not) and (.result.txDetails|length == 2)' "$FUNCNAME"
 }
 
 chain33_ImportPrivkey() {
-
-    req='"method":"Chain33.ImportPrivkey", "params":[{"privkey":"0x88b2fb90411935872f0501dd13345aba19b5fac9b00eb0dddd7df977d4d5477e", "label":"testimportkey"}]'
-    echo "#request: $req"
-    resp=$(curl -ksd "{$req}" "$1")
-    #        echo "#response: $resp"
-    ok=$(jq '(.error|not) and (.result.label=="testimportkey") and (.result.acc.addr == "1D9xKRnLvV2zMtSxSx33ow1GF4pcbLcNRt")' <<<"$resp")
-    [ "$ok" == true ]
-    echo_rst "$FUNCNAME" "$?"
-
+    req='{"method":"Chain33.ImportPrivkey", "params":[{"privkey":"0x88b2fb90411935872f0501dd13345aba19b5fac9b00eb0dddd7df977d4d5477e", "label":"testimportkey"}]}'
+    http_req "$req" ${MAIN_HTTP} '(.error|not) and (.result.label=="testimportkey") and (.result.acc.addr == "1D9xKRnLvV2zMtSxSx33ow1GF4pcbLcNRt")' "$FUNCNAME"
 }
 
 chain33_DumpPrivkey() {
@@ -261,22 +249,32 @@ chain33_GetTimeStatus() {
 }
 
 chain33_GetLastBlockSequence() {
-    r1=$(curl -ksd '{"method":"Chain33.GetLastBlockSequence","params":[]}' ${MAIN_HTTP} | jq -r ".result")
-    [ "$r1" -ge 0 ]
-    echo_rst "$FUNCNAME" "$?"
+    if [ "$IS_PARA" == true ]; then
+        echo_rst "$FUNCNAME" 2
+    else
+        r1=$(curl -ksd '{"method":"Chain33.GetLastBlockSequence","params":[]}' ${MAIN_HTTP} | jq -r ".result")
+        [ "$r1" -ge 0 ]
+        echo_rst "$FUNCNAME" "$?"
+    fi
 }
 
 chain33_GetBlockSequences() {
-    r1=$(curl -ksd '{"method":"Chain33.GetBlockSequences","params":[{"start":1,"end":3,"isDetail":true}]}' ${MAIN_HTTP} | jq ".result.blkseqInfos|length==3")
-    [ "$r1" == true ]
-    echo_rst "$FUNCNAME" "$?"
+    if [ "$IS_PARA" == true ]; then
+        echo_rst "$FUNCNAME" 2
+    else
+        http_req '{"method":"Chain33.GetBlockSequences","params":[{"start":1,"end":3,"isDetail":true}]}' ${MAIN_HTTP} ".result.blkseqInfos|length==3" "$FUNCNAME"
+    fi
 }
 
 chain33_GetBlockByHashes() {
     if [ "$IS_PARA" == true ]; then
-        geneis="0x97162f9d4a888121fdba2fb1ab402596acdbcb602121bd12284adb739d85f225"
-        statehash=$(curl -ksd '{"method":"Chain33.GetBlockByHashes","params":[{"hashes":["'"$geneis"'"]}]}' ${MAIN_HTTP} | jq -r ".result.items[0].block.stateHash")
-        [ "$statehash" == "0x2863c8dbc7fe3146c8d4e7acf2b8bbe4666264d658356e299e240f462a382a51" ]
+        req='{"method":"Chain33.GetBlockHash", "params":[{"height":0}]}'
+        resp=$(curl -ksd "$req" "${MAIN_HTTP}")
+        echo "#GetBlockHash.response: $resp"
+        geneis=$(jq -r '(.result.hash)' <<<"$resp")
+        #geneis="0x97162f9d4a888121fdba2fb1ab402596acdbcb602121bd12284adb739d85f225"
+        statehash=$(curl -ksd '{"method":"Chain33.GetBlockByHashes","params":[{"hashes":["'"$geneis"'"]}]}' ${MAIN_HTTP} | jq -r ".result.items[0].block.parentHash")
+        [ "$statehash" == "0x0000000000000000000000000000000000000000000000000000000000000000" ]
         echo_rst "$FUNCNAME" "$?"
     else
         hash0=$(curl -ksd '{"method":"Chain33.GetBlockSequences","params":[{"start":1,"end":3,"isDetail":true}]}' ${MAIN_HTTP} | jq -r ".result.blkseqInfos[0].hash")
@@ -339,8 +337,12 @@ chain33_GetSeqCallBackLastNum() {
 }
 
 chain33_GetCoinSymbol() {
+    symbol="bty"
+    if [ "$IS_PARA" == true ]; then
+        symbol="para"
+    fi
     r1=$(curl -ksd '{"method":"Chain33.GetCoinSymbol","params":[]}' ${MAIN_HTTP} | jq -r ".result.data")
-    [ "$r1" == "bty" ]
+    [ "$r1" == "$symbol" ]
     echo_rst "$FUNCNAME" "$?"
 }
 

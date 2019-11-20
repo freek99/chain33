@@ -49,6 +49,7 @@ var (
 	ErrBlockNotFound           = errors.New("ErrBlockNotFound")
 	ErrLogType                 = errors.New("ErrLogType")
 	ErrInvalidParam            = errors.New("ErrInvalidParam")
+	ErrInvalidExpire           = errors.New("ErrInvalidExpire")
 	ErrInvalidAddress          = errors.New("ErrInvalidAddress")
 	ErrNotInited               = errors.New("ErrNotInited")
 
@@ -141,6 +142,7 @@ var (
 	ErrVersion    = errors.New("ErrVersionNoSupport")
 	ErrStreamPing = errors.New("ErrStreamPing")
 	ErrPeerStop   = errors.New("ErrPeerStop")
+	ErrP2PChannel = errors.New("ErrIllegalP2PChannel")
 
 	ErrBlockSize                  = errors.New("ErrBlockSize")
 	ErrTxGroupIndex               = errors.New("ErrTxGroupIndex")
@@ -186,4 +188,8 @@ var (
 
 	ErrDisableWrite = errors.New("ErrDisableWrite")
 	ErrDisableRead  = errors.New("ErrDisableRead")
+
+	ErrConsensusHashErr  = errors.New("ErrConsensusHashErr")
+	ErrMaxCountPerTime   = errors.New("ErrMaxCountPerTime")
+	ErrInValidFileHeader = errors.New("ErrInValidFileHeader")
 )

@@ -5,7 +5,6 @@
 package p2p
 
 import (
-	"encoding/hex"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,7 +25,10 @@ func (p *Peer) Start() {
 
 // Close peer close
 func (p *Peer) Close() {
-	atomic.StoreInt32(&p.isclose, 1)
+	//避免重复关闭
+	if !atomic.CompareAndSwapInt32(&p.isclose, 0, 1) {
+		return
+	}
 	p.mconn.Close()
 	p.node.pubsub.Unsub(p.taskChan, "block", "tx")
 	log.Info("Peer", "closed", p.Addr())
@@ -48,6 +50,7 @@ type Peer struct {
 	taskChan     chan interface{} //tx block
 	inBounds     int32            //连接此节点的客户端节点数量
 	IsMaxInbouds bool
+	isRegister   bool //标记是否发送服务端注册peer info, 规避6.2版本no peer info问题, TODO: 全网升级到6.3后, 可删除相关代码
 }
 
 // NewPeer produce a peer object
@@ -134,18 +137,19 @@ func (p *Peer) heartBeat() {
 		}
 		peername, err := pcli.SendVersion(p, p.node.nodeInfo)
 		P2pComm.CollectPeerStat(err, p)
-		if err == nil {
-			log.Debug("sendVersion", "peer name", peername)
-			p.SetPeerName(peername) //设置连接的远程节点的节点名称
-			p.taskChan = p.node.pubsub.Sub("block", "tx")
-			go p.sendStream()
-			go p.readStream()
-			break
-		} else {
+		if err != nil || peername == "" {
 			//版本不对，直接关掉
+			log.Error("PeerHeartBeatSendVersion", "peerName", peername, "err", err)
 			p.Close()
 			return
 		}
+
+		log.Debug("sendVersion", "peer name", peername)
+		p.SetPeerName(peername) //设置连接的远程节点的节点名称
+		p.taskChan = p.node.pubsub.Sub("block", "tx", peername)
+		go p.sendStream()
+		go p.readStream()
+		break
 	}
 
 	ticker := time.NewTicker(PingTimeout)
@@ -154,16 +158,15 @@ func (p *Peer) heartBeat() {
 		if !p.GetRunning() {
 			return
 		}
-
 		<-ticker.C
-		err := pcli.SendPing(p, p.node.nodeInfo)
-		P2pComm.CollectPeerStat(err, p)
-		peernum, err := pcli.GetInPeersNum(p)
-		P2pComm.CollectPeerStat(err, p)
+		peerNum, err := pcli.GetInPeersNum(p)
 		if err == nil {
-			atomic.StoreInt32(&p.inBounds, int32(peernum))
+			atomic.StoreInt32(&p.inBounds, int32(peerNum))
 		}
-
+		err = pcli.SendPing(p, p.node.nodeInfo)
+		if err != nil {
+			log.Error("SendPeerPing", "peer", p.Addr(), "err", err)
+		}
 	}
 }
 
@@ -173,15 +176,15 @@ func (p *Peer) GetInBouns() int32 {
 }
 
 // GetPeerInfo get peer information of peer
-func (p *Peer) GetPeerInfo(version int32) (*pb.P2PPeerInfo, error) {
-	return p.mconn.gcli.GetPeerInfo(context.Background(), &pb.P2PGetPeerInfo{Version: version}, grpc.FailFast(true))
+func (p *Peer) GetPeerInfo() (*pb.P2PPeerInfo, error) {
+	return p.mconn.gcli.GetPeerInfo(context.Background(), &pb.P2PGetPeerInfo{Version: p.node.nodeInfo.channelVersion}, grpc.FailFast(true))
 }
 
 func (p *Peer) sendStream() {
 	//Stream Send data
 	for {
 		if !p.GetRunning() {
-			log.Info("sendStream peer connect closed", "peerid", p.GetPeerName())
+			log.Debug("sendStream peer connect closed", "peerid", p.GetPeerName())
 			return
 		}
 		ctx, cancel := context.WithCancel(context.Background())
@@ -219,9 +222,9 @@ func (p *Peer) sendStream() {
 		}
 
 		//send softversion&p2pversion
-		_, peername := p.node.nodeInfo.addrBook.GetPrivPubKey()
-		p2pdata.Value = &pb.BroadCastData_Version{Version: &pb.Versions{P2Pversion: p.node.nodeInfo.cfg.Version,
-			Softversion: v.GetVersion(), Peername: peername}}
+		_, peerName := p.node.nodeInfo.addrBook.GetPrivPubKey()
+		p2pdata.Value = &pb.BroadCastData_Version{Version: &pb.Versions{P2Pversion: p.node.nodeInfo.channelVersion,
+			Softversion: v.GetVersion(), Peername: peerName}}
 
 		if err := resp.Send(p2pdata); err != nil {
 			P2pComm.CollectPeerStat(err, p)
@@ -233,16 +236,21 @@ func (p *Peer) sendStream() {
 			log.Error("sendStream", "sendversion", err)
 			continue
 		}
+		//发送完版本信息后, 标识已注册 TODO: 全网升级到6.3后, 可删除这部分代码
+		p.setIsRegister(true)
 		timeout := time.NewTimer(time.Second * 2)
 		defer timeout.Stop()
-		var hash [64]byte
 	SEND_LOOP:
 		for {
-
+			//老版本的peerinfo注册错误, 需要结束发送流循环, 重新注册节点信息
+			if !p.getIsRegister() {
+				break
+			}
 			if !p.GetRunning() {
 				return
 			}
 			select {
+
 			case task := <-p.taskChan:
 				if !p.GetRunning() {
 					errs := resp.CloseSend()
@@ -253,34 +261,11 @@ func (p *Peer) sendStream() {
 					log.Error("sendStream peer connect closed", "peerName", p.GetPeerName())
 					return
 				}
-				p2pdata := new(pb.BroadCastData)
-				if block, ok := task.(*pb.P2PBlock); ok {
-					height := block.GetBlock().GetHeight()
-					hex.Encode(hash[:], block.GetBlock().Hash())
-					blockhash := string(hash[:])
-					log.Debug("sendStream", "will send block", blockhash)
-					pinfo, err := p.GetPeerInfo(p.node.nodeInfo.cfg.Version)
-					P2pComm.CollectPeerStat(err, p)
-					if err == nil {
-						if pinfo.GetHeader().GetHeight() >= height {
-							log.Debug("sendStream", "find peer height>this broadblock ,send process", "break")
-							continue
-						}
-
-					}
-
-					p2pdata.Value = &pb.BroadCastData_Block{Block: block}
-					Filter.RegRecvData(blockhash)
-
-				} else if tx, ok := task.(*pb.P2PTx); ok {
-					hex.Encode(hash[:], tx.GetTx().Hash())
-					txhash := string(hash[:])
-					log.Debug("sendStream", "will send tx", txhash)
-					p2pdata.Value = &pb.BroadCastData_Tx{Tx: tx}
-					Filter.RegRecvData(txhash)
+				sendData, doSend := p.node.processSendP2P(task, p.version.GetVersion(), p.GetPeerName(), p.Addr())
+				if !doSend {
+					continue
 				}
-
-				err := resp.Send(p2pdata)
+				err := resp.Send(sendData)
 				P2pComm.CollectPeerStat(err, p)
 				if err != nil {
 					log.Error("sendStream", "send", err)
@@ -309,25 +294,29 @@ func (p *Peer) sendStream() {
 					return
 				}
 				timeout.Reset(time.Second * 2)
-
 			}
 		}
-
 	}
 }
 
 func (p *Peer) readStream() {
 
-	pcli := NewNormalP2PCli()
-
+	//6.2版本no peer info错误重试 TODO: 全网升级到6.3后, 可删除这部分代码
+	noPeerInfoRetry := 0
 	for {
 		if !p.GetRunning() {
 			log.Debug("readstream", "loop", "done")
 			return
 		}
+
+		//等待注册节点信息成功后再进行广播接收, 规避6.2版本未注册直接报错问题 TODO: 全网升级到6.3后, 可删除这部分代码
+		for !p.getIsRegister() {
+			time.Sleep(5 * time.Second * time.Duration(noPeerInfoRetry))
+		}
+
 		ping, err := P2pComm.NewPingData(p.node.nodeInfo)
 		if err != nil {
-			log.Error("readStream", "err:", err.Error())
+			log.Error("readStream", "err:", err.Error(), "peerIp", p.Addr())
 			continue
 		}
 		resp, err := p.mconn.gcli.ServerStreamSend(context.Background(), ping)
@@ -339,7 +328,6 @@ func (p *Peer) readStream() {
 		}
 
 		log.Debug("SubStreamBlock", "Start", p.Addr())
-		var hash [64]byte
 		for {
 			if !p.GetRunning() {
 				errs := resp.CloseSend()
@@ -350,80 +338,47 @@ func (p *Peer) readStream() {
 			}
 
 			data, err := resp.Recv()
-			P2pComm.CollectPeerStat(err, p)
 			if err != nil {
-				log.Error("readStream", "recv,err:", err.Error())
+				//6.2版本的no peer info错误,会导致节点重复多次尝试连接, 前面已经尽量规避, 依然有该错误,需要触发重新注册
+				//TODO: 全网升级到6.3后, 可删除这部分代码
+				if strings.Contains(err.Error(), "no peer info") {
+					noPeerInfoRetry++
+					//重复次数过多
+					if noPeerInfoRetry > 10 {
+						log.Error("readStream", "err", "max no peer info retry")
+						p.Close()
+						return
+					}
+					log.Debug("readStream", "err", "no peer info", "retryTimes", noPeerInfoRetry, "peerAddr", p.Addr())
+					p.setIsRegister(false)
+					time.Sleep(time.Second * 10 * time.Duration(noPeerInfoRetry))
+					break
+				}
+				P2pComm.CollectPeerStat(err, p)
+				log.Error("readStream", "recv,err:", err.Error(), "peerAddr", p.Addr())
 				errs := resp.CloseSend()
 				if errs != nil {
 					log.Error("CloseSend", "err", errs)
 				}
+
+				log.Error("readStream", "recv,err:", err.Error(), "peerIp", p.Addr())
+
 				if grpc.Code(err) == codes.Unimplemented { //maybe order peers delete peer to BlackList
 					p.node.nodeInfo.blacklist.Add(p.Addr(), 3600)
+					return
 				}
 				//beyound max inbound num
 				if strings.Contains(err.Error(), "beyound max inbound num") {
-					log.Info("readStream", "peer inbounds num", p.GetInBouns())
+					log.Debug("readStream", "peer inbounds num", p.GetInBouns())
 					p.IsMaxInbouds = true
 					P2pComm.CollectPeerStat(err, p)
+					return
 				}
 				time.Sleep(time.Second) //have a rest
-				break
+
 			}
 
-			if block := data.GetBlock(); block != nil {
-				if block.GetBlock() != nil {
-					//如果已经有登记过的消息记录，则不发送给本地blockchain
-					hex.Encode(hash[:], block.GetBlock().Hash())
-					blockhash := string(hash[:])
-					Filter.GetLock()
-					if Filter.QueryRecvData(blockhash) {
-						Filter.ReleaseLock()
-						continue
-					}
-					Filter.RegRecvData(blockhash)
-					Filter.ReleaseLock()
-					//判断比自己低的区块，则不发送给blockchain
-
-					height, err := pcli.GetBlockHeight(p.node.nodeInfo)
-					if err == nil {
-						if height >= block.GetBlock().GetHeight()+128 {
-							continue
-						}
-					}
-
-					log.Info("readStream", "block==+======+====+=>Height", block.GetBlock().GetHeight(), "from peer", p.Addr(),
-						"block size(KB)", float32(len(pb.Encode(block)))/1024, "block hash",
-						blockhash)
-					msg := p.node.nodeInfo.client.NewMessage("blockchain", pb.EventBroadcastAddBlock, &pb.BlockPid{Pid: p.GetPeerName(), Block: block.GetBlock()})
-					err = p.node.nodeInfo.client.Send(msg, false)
-					if err != nil {
-						log.Error("readStream", "send to blockchain Error", err.Error())
-						continue
-					}
-					//Filter.RegRecvData(blockhash) //添加发送登记，下次通过stream 接收同样的消息的时候可以过滤
-				}
-
-			} else if tx := data.GetTx(); tx != nil {
-
-				if tx.GetTx() != nil {
-					hex.Encode(hash[:], tx.Tx.Hash())
-					txhash := string(hash[:])
-					log.Debug("readStream", "tx", txhash)
-					Filter.GetLock()
-					if Filter.QueryRecvData(txhash) {
-						Filter.ReleaseLock()
-						continue //处理方式同上
-					}
-					Filter.RegRecvData(txhash)
-					Filter.ReleaseLock()
-					msg := p.node.nodeInfo.client.NewMessage("mempool", pb.EventTx, tx.GetTx())
-					errs := p.node.nodeInfo.client.Send(msg, false)
-					if errs != nil {
-						log.Error("send", "to mempool EventTx msg Error", errs.Error())
-					}
-					//Filter.RegRecvData(txhash) //登记
-				}
-			}
+			p.node.processRecvP2P(data, p.GetPeerName(), p.node.pubToPeer, p.Addr())
 		}
 	}
 }
@@ -474,4 +429,16 @@ func (p *Peer) GetPeerName() string {
 	p.mutx.Lock()
 	defer p.mutx.Unlock()
 	return p.name
+}
+
+func (p *Peer) setIsRegister(register bool) {
+	p.mutx.Lock()
+	defer p.mutx.Unlock()
+	p.isRegister = register
+}
+
+func (p *Peer) getIsRegister() bool {
+	p.mutx.Lock()
+	defer p.mutx.Unlock()
+	return p.isRegister
 }

@@ -55,20 +55,23 @@ func TestAllowExecName(t *testing.T) {
 }
 
 func BenchmarkExecName(b *testing.B) {
+	cfg := NewChain33Config(GetDefaultCfgstring())
 	for i := 0; i < b.N; i++ {
-		ExecName("hello")
+		cfg.ExecName("hello")
 	}
 }
 
 func BenchmarkG(b *testing.B) {
+	cfg := NewChain33Config(GetDefaultCfgstring())
 	for i := 0; i < b.N; i++ {
-		G("TestNet")
+		cfg.G("TestNet")
 	}
 }
 
 func BenchmarkS(b *testing.B) {
+	cfg := NewChain33Config(GetDefaultCfgstring())
 	for i := 0; i < b.N; i++ {
-		S("helloword", true)
+		cfg.S("helloword", true)
 	}
 }
 func TestJsonNoName(t *testing.T) {
@@ -334,7 +337,7 @@ func TestIterateCallBack_PrefixWithoutExecAddr(t *testing.T) {
 	assert.Equal(t, 4, len(reply.Keys))
 	assert.Equal(t, 4, len(reply.Values))
 	assert.Equal(t, int64(4), reply.Num)
-	assert.Equal(t, string(key3), string(reply.NextKey))
+	assert.Equal(t, key3, string(reply.NextKey))
 	fmt.Println(string(reply.NextKey))
 }
 
@@ -404,6 +407,7 @@ func TestIterateCallBack_PrefixWithExecAddr(t *testing.T) {
 }
 
 func TestJsonpbUTF8Tx(t *testing.T) {
+	NewChain33Config(GetDefaultCfgstring())
 	bdata, err := common.FromHex("0a05636f696e73121018010a0c108084af5f1a05310a320a3320e8b31b30b9b69483d7f9d3f04c3a22314b67453376617969715a4b6866684d66744e3776743267447639486f4d6b393431")
 	assert.Nil(t, err)
 	var r Transaction

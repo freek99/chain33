@@ -71,8 +71,7 @@ func TestMergeLevel2Error(t *testing.T) {
 }
 
 func TestMergeToml(t *testing.T) {
-	S("cfg.bityuan", bityuancfg)
-	newcfg := mergeCfg(readFile("../cmd/chain33/bityuan.toml"))
+	newcfg := MergeCfg(ReadFile("../cmd/chain33/bityuan.toml"), bityuancfg)
 	cfg1, err := initCfgString(newcfg)
 	assert.Nil(t, err)
 	cfg2, err := initCfgString(readFile("testdata/bityuan.toml"))
@@ -223,6 +222,7 @@ ForkChainParamV2= -1
 ForkBlockCheck=1725000
 ForkLocalDBAccess=1
 ForkBase58AddressCheck=1800000
+ForkTicketFundAddrV1=-1
 [fork.sub.coins]
 Enable=0
 

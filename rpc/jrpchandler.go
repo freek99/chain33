@@ -5,6 +5,7 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -72,9 +73,26 @@ func (c *Chain33) CreateRawTxGroup(in *types.CreateTransactionGroup, result *int
 	return nil
 }
 
+// CreateNoBlanaceTxs create multiple transaction with no balance
+func (c *Chain33) CreateNoBlanaceTxs(in *types.NoBalanceTxs, result *string) error {
+	tx, err := c.cli.CreateNoBalanceTxs(in)
+	if err != nil {
+		return err
+	}
+	grouptx := hex.EncodeToString(types.Encode(tx))
+	*result = grouptx
+	return nil
+}
+
 // CreateNoBalanceTransaction create transaction with no balance
 func (c *Chain33) CreateNoBalanceTransaction(in *types.NoBalanceTx, result *string) error {
-	tx, err := c.cli.CreateNoBalanceTransaction(in)
+	params := &types.NoBalanceTxs{
+		TxHexs:  []string{in.GetTxHex()},
+		PayAddr: in.GetPayAddr(),
+		Privkey: in.GetPrivkey(),
+		Expire:  in.GetExpire(),
+	}
+	tx, err := c.cli.CreateNoBalanceTxs(params)
 	if err != nil {
 		return err
 	}
@@ -98,7 +116,8 @@ func (c *Chain33) SendTransaction(in rpctypes.RawParm, result *interface{}) erro
 
 	var reply *types.Reply
 	//para chain, forward to main chain
-	if types.IsPara() {
+	cfg := c.cli.GetConfig()
+	if cfg.IsPara() {
 		reply, err = c.mainGrpcCli.SendTransaction(context.Background(), &parm)
 	} else {
 		reply, err = c.cli.SendTx(&parm)
@@ -329,9 +348,8 @@ func fmtAsssets(assets []*types.Asset) []*rpctypes.Asset {
 }
 
 // GetMempool get mempool information
-func (c *Chain33) GetMempool(in *types.ReqNil, result *interface{}) error {
-
-	reply, err := c.cli.GetMempool()
+func (c *Chain33) GetMempool(in *types.ReqGetMempool, result *interface{}) error {
+	reply, err := c.cli.GetMempool(in)
 	if err != nil {
 		return err
 	}
@@ -614,8 +632,8 @@ func (c *Chain33) GetLastMemPool(in types.ReqNil, result *interface{}) error {
 }
 
 // GetProperFee get  contents in proper fee
-func (c *Chain33) GetProperFee(in types.ReqNil, result *interface{}) error {
-	reply, err := c.cli.GetProperFee()
+func (c *Chain33) GetProperFee(in types.ReqProperFee, result *interface{}) error {
+	reply, err := c.cli.GetProperFee(&in)
 	if err != nil {
 		return err
 	}
@@ -745,6 +763,15 @@ func (c *Chain33) GetWalletStatus(in types.ReqNil, result *interface{}) error {
 
 // GetBalance get balance
 func (c *Chain33) GetBalance(in types.ReqBalance, result *interface{}) error {
+	//增加addr地址的校验
+	for _, addr := range in.GetAddresses() {
+		err := address.CheckAddress(addr)
+		if err != nil {
+			if err = address.CheckMultiSignAddress(addr); err != nil {
+				return types.ErrInvalidAddress
+			}
+		}
+	}
 	balances, err := c.cli.GetBalance(&in)
 	if err != nil {
 		return err
@@ -807,6 +834,7 @@ func (c *Chain33) ExecWallet(in *rpctypes.ChainExecutor, result *interface{}) er
 
 // Query query
 func (c *Chain33) Query(in rpctypes.Query4Jrpc, result *interface{}) error {
+	cfg := c.cli.GetConfig()
 	execty := types.LoadExecutorType(in.Execer)
 	if execty == nil {
 		log.Error("Query", "funcname", in.FuncName, "err", types.ErrNotSupport)
@@ -818,7 +846,7 @@ func (c *Chain33) Query(in rpctypes.Query4Jrpc, result *interface{}) error {
 		log.Error("EventQuery1", "err", err.Error())
 		return err
 	}
-	resp, err := c.cli.Query(types.ExecName(in.Execer), in.FuncName, decodePayload)
+	resp, err := c.cli.Query(cfg.ExecName(in.Execer), in.FuncName, decodePayload)
 	if err != nil {
 		log.Error("EventQuery2", "err", err.Error())
 		return err
@@ -894,8 +922,13 @@ func (c *Chain33) IsNtpClockSync(in *types.ReqNil, result *interface{}) error {
 
 // QueryTotalFee query total fee
 func (c *Chain33) QueryTotalFee(in *types.LocalDBGet, result *interface{}) error {
-	if in == nil || len(in.Keys) > 1 {
+	if in == nil || len(in.Keys) != 1 {
 		return types.ErrInvalidParam
+	}
+	totalFeePrefix := []byte("TotalFeeKey:")
+	//add prefix if not exist
+	if !bytes.HasPrefix(in.Keys[0], totalFeePrefix) {
+		in.Keys[0] = append(totalFeePrefix, in.Keys[0]...)
 	}
 	reply, err := c.cli.LocalGet(in)
 	if err != nil {
@@ -1067,7 +1100,8 @@ func (c *Chain33) CreateTransaction(in *rpctypes.CreateTxIn, result *interface{}
 	if in == nil {
 		return types.ErrInvalidParam
 	}
-	btx, err := types.CallCreateTxJSON(types.ExecName(in.Execer), in.ActionName, in.Payload)
+	cfg := c.cli.GetConfig()
+	btx, err := types.CallCreateTxJSON(cfg, cfg.ExecName(in.Execer), in.ActionName, in.Payload)
 	if err != nil {
 		return err
 	}
@@ -1186,7 +1220,8 @@ func fmtAccount(balances []*types.Account) []*rpctypes.Account {
 
 // GetCoinSymbol get coin symbol
 func (c *Chain33) GetCoinSymbol(in types.ReqNil, result *interface{}) error {
-	symbol := types.GetCoinSymbol()
+	cfg := c.cli.GetConfig()
+	symbol := cfg.GetCoinSymbol()
 	resp := types.ReplyString{Data: symbol}
 	log.Warn("GetCoinSymbol", "Symbol", symbol)
 	*result = &resp

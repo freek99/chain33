@@ -31,11 +31,12 @@ var (
 
 func GenerAccDb() (*DB, *DB) {
 	//构造账户数据库
-	accCoin := NewCoinsAccount()
+	cfg := types.NewChain33Config(types.GetDefaultCfgstring())
+	accCoin := NewCoinsAccount(cfg)
 	stroedb, _ := db.NewGoMemDB("gomemdb", "test", 128)
 	accCoin.SetDB(stroedb)
 
-	accToken, _ := NewAccountDB("token", "test", nil)
+	accToken, _ := NewAccountDB(cfg, "token", "test", nil)
 	stroedb2, _ := db.NewGoMemDB("gomemdb", "test", 128)
 	accToken.SetDB(stroedb2)
 
@@ -116,6 +117,8 @@ func TestDepositBalance(t *testing.T) {
 
 func initEnv() queue.Queue {
 	var q = queue.New("channel")
+	cfg := types.NewChain33Config(types.GetDefaultCfgstring())
+	q.SetConfig(cfg)
 	return q
 }
 
@@ -204,13 +207,13 @@ func TestGetTotalCoins(t *testing.T) {
 
 func TestAccountName(t *testing.T) {
 	stroedb, _ := db.NewGoMemDB("gomemdb", "test", 128)
-
-	accCoin := NewCoinsAccount()
+	cfg := types.NewChain33Config(types.GetDefaultCfgstring())
+	accCoin := NewCoinsAccount(cfg)
 	accCoin.SetDB(stroedb)
 	coinsAddr := address.ExecAddress("coins")
 	t.Log("coinsAddr:", coinsAddr)
 
-	accToken, _ := NewAccountDB("token", "test", nil)
+	accToken, _ := NewAccountDB(cfg, "token", "test", nil)
 	accToken.SetDB(stroedb)
 	tokenAddr := address.ExecAddress("token")
 	t.Log("tokenAddr:", tokenAddr)
@@ -449,7 +452,7 @@ func getExecBalance(callback func(*types.StoreList) (*types.StoreListReply, erro
 		if strings.HasSuffix(prefix, ":") {
 			addr := strKey[len(prefix):]
 			execAddr := []byte(prefix[(len(prefix) - len(addr) - 1):(len(prefix) - 1)])
-			fmt.Println("DB.GetExecBalance record for specific exec addr.", "execAddr:", string(execAddr), " addr:", string(addr))
+			fmt.Println("DB.GetExecBalance record for specific exec addr.", "execAddr:", string(execAddr), " addr:", addr)
 			reply.AddItem(execAddr, res.Values[i])
 		} else {
 			combinAddr := strKey[len(prefix):]
@@ -458,7 +461,7 @@ func getExecBalance(callback func(*types.StoreList) (*types.StoreListReply, erro
 				fmt.Println("accountDB.GetExecBalance key does not contain exec-addr & addr", "key", strKey, "combinAddr", combinAddr)
 				return nil, types.ErrTypeAsset
 			}
-			fmt.Println("DB.GetExecBalance", "execAddr", string(addrs[0]), "addr", string(addrs[1]))
+			fmt.Println("DB.GetExecBalance", "execAddr", addrs[0], "addr", addrs[1])
 			reply.AddItem([]byte(addrs[0]), res.Values[i])
 		}
 	}
@@ -469,7 +472,7 @@ func getExecBalance(callback func(*types.StoreList) (*types.StoreListReply, erro
 }
 
 func TestGetExecBalance2(t *testing.T) {
-	accCoin := NewCoinsAccount()
+	accCoin := NewCoinsAccount(types.NewChain33Config(types.GetDefaultCfgstring()))
 	key := "mavl-coins-bty-exec-16htvcBNSEA7fZhAdLJphDwQRQJaHpyHTp:1JmFaA6unrCFYEWPGRi7uuXY1KthTJxJEP"
 	execAddr := "16htvcBNSEA7fZhAdLJphDwQRQJaHpyHTp"
 	addr := "1JmFaA6unrCFYEWPGRi7uuXY1KthTJxJEP"
@@ -556,7 +559,8 @@ func TestGetExecBalance2(t *testing.T) {
 }
 
 func TestGetBalance(t *testing.T) {
-	accCoin := NewCoinsAccount()
+	cfg := types.NewChain33Config(types.GetDefaultCfgstring())
+	accCoin := NewCoinsAccount(cfg)
 	addr := "1JmFaA6unrCFYEWPGRi7uuXY1KthTJxJEP"
 
 	fmt.Println("-------------TestGetExecBalance2---test case1---")
@@ -566,6 +570,7 @@ func TestGetBalance(t *testing.T) {
 	api.On("StoreList", mock.Anything).Return(&types.StoreListReply{}, nil)
 	api.On("GetLastHeader", mock.Anything).Return(&types.Header{StateHash: []byte("111111111111111111111")}, nil)
 	api.On("StoreGet", mock.Anything).Return(&types.StoreReplyValue{Values: make([][]byte, 1)}, nil)
+	api.On("GetConfig", mock.Anything).Return(cfg)
 	_, err := accCoin.GetBalance(api, in)
 	assert.Nil(t, err)
 

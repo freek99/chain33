@@ -6,6 +6,7 @@ package blockchain
 
 //message callback
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/33cn/chain33/common"
@@ -64,37 +65,36 @@ func (chain *BlockChain) ProcRecvMsg() {
 			go chain.processMsg(msg, reqnum, chain.isNtpClockSyncFunc)
 		case types.EventGetLastBlockSequence:
 			go chain.processMsg(msg, reqnum, chain.getLastBlockSequence)
-
 		case types.EventGetBlockSequences:
 			go chain.processMsg(msg, reqnum, chain.getBlockSequences)
-
 		case types.EventGetBlockByHashes:
 			go chain.processMsg(msg, reqnum, chain.getBlockByHashes)
 		case types.EventGetBlockBySeq:
 			go chain.processMsg(msg, reqnum, chain.getBlockBySeq)
-
 		case types.EventDelParaChainBlockDetail:
 			go chain.processMsg(msg, reqnum, chain.delParaChainBlockDetail)
-
 		case types.EventAddParaChainBlockDetail:
 			go chain.processMsg(msg, reqnum, chain.addParaChainBlockDetail)
-
 		case types.EventGetSeqByHash:
 			go chain.processMsg(msg, reqnum, chain.getSeqByHash)
 		case types.EventAddBlockSeqCB:
 			go chain.processMsg(msg, reqnum, chain.addBlockSeqCB)
-
 		case types.EventListBlockSeqCB:
 			go chain.processMsg(msg, reqnum, chain.listBlockSeqCB)
-
 		case types.EventGetSeqCBLastNum:
 			go chain.processMsg(msg, reqnum, chain.getSeqCBLastNum)
-
 		case types.EventGetLastBlockMainSequence:
 			go chain.processMsg(msg, reqnum, chain.GetLastBlockMainSequence)
 		case types.EventGetMainSeqByHash:
 			go chain.processMsg(msg, reqnum, chain.GetMainSeqByHash)
-
+		//para共识模块操作blockchain db的事件
+		case types.EventSetValueByKey:
+			go chain.processMsg(msg, reqnum, chain.setValueByKey)
+		case types.EventGetValueByKey:
+			go chain.processMsg(msg, reqnum, chain.getValueByKey)
+		//通过平行链title获取平行链的交易
+		case types.EventGetParaTxByTitle:
+			go chain.processMsg(msg, reqnum, chain.getParaTxByTitle)
 		default:
 			go chain.processMsg(msg, reqnum, chain.unknowMsg)
 		}
@@ -167,7 +167,7 @@ func (chain *BlockChain) addBlock(msg *queue.Message) {
 	blockpid := msg.Data.(*types.BlockPid)
 	//chainlog.Error("addBlock", "height", blockpid.Block.Height, "pid", blockpid.Pid)
 	if chain.GetDownloadSyncStatus() {
-		err := chain.WriteBlockToDbTemp(blockpid.Block)
+		err := chain.WriteBlockToDbTemp(blockpid.Block, true)
 		if err != nil {
 			chainlog.Error("WriteBlockToDbTemp", "height", blockpid.Block.Height, "err", err.Error())
 			reply.IsOk = false
@@ -254,10 +254,14 @@ func (chain *BlockChain) addBlockDetail(msg *queue.Message) {
 		msg.Reply(chain.client.NewMessage("consensus", types.EventAddBlockDetail, err))
 		return
 	}
-	chainlog.Debug("addBlockDetail success ", "Height", Height, "hash", common.HashHex(blockDetail.Block.Hash()))
+	chainlog.Debug("addBlockDetail success ", "Height", Height, "hash", common.HashHex(blockDetail.Block.Hash(chain.client.GetConfig())))
 	msg.Reply(chain.client.NewMessage("consensus", types.EventAddBlockDetail, blockDetail))
 }
 
+//超前太多或者落后太多的广播区块都不做处理：
+//当本节点在同步阶段并且远远落后主网最新高度时不处理广播block,暂定落后128个区块
+//以免广播区块占用go goroutine资源
+//目前回滚只支持10000个区块，所以收到落后10000高度之外的广播区块也不做处理
 func (chain *BlockChain) broadcastAddBlock(msg *queue.Message) {
 	var reply types.Reply
 	reply.IsOk = true
@@ -265,10 +269,12 @@ func (chain *BlockChain) broadcastAddBlock(msg *queue.Message) {
 
 	castheight := blockwithpid.Block.Height
 	curheight := chain.GetBlockHeight()
-	//当本节点在同步阶段并且远远落后主网最新高度时不处理广播block,暂定落后128个区块
-	//以免广播区块占用go goroutine资源
-	if blockwithpid.Block.Height > curheight+BackBlockNum {
-		chainlog.Debug("EventBroadcastAddBlock", "curheight", curheight, "castheight", castheight, "hash", common.ToHex(blockwithpid.Block.Hash()), "pid", blockwithpid.Pid, "result", "Do not handle broad cast Block in sync")
+
+	futureMaximum := castheight > curheight+BackBlockNum
+	backWardMaximum := curheight > MaxRollBlockNum && castheight < curheight-MaxRollBlockNum
+
+	if futureMaximum || backWardMaximum {
+		chainlog.Debug("EventBroadcastAddBlock", "curheight", curheight, "castheight", castheight, "hash", common.ToHex(blockwithpid.Block.Hash(chain.client.GetConfig())), "pid", blockwithpid.Pid, "result", "Do not handle broad cast Block in sync")
 		msg.Reply(chain.client.NewMessage("", types.EventReply, &reply))
 		return
 	}
@@ -278,7 +284,7 @@ func (chain *BlockChain) broadcastAddBlock(msg *queue.Message) {
 		reply.IsOk = false
 		reply.Msg = []byte(err.Error())
 	}
-	chainlog.Debug("EventBroadcastAddBlock", "height", blockwithpid.Block.Height, "hash", common.ToHex(blockwithpid.Block.Hash()), "pid", blockwithpid.Pid, "success", "ok")
+	chainlog.Debug("EventBroadcastAddBlock", "height", blockwithpid.Block.Height, "hash", common.ToHex(blockwithpid.Block.Hash(chain.client.GetConfig())), "pid", blockwithpid.Pid, "success", "ok")
 
 	msg.Reply(chain.client.NewMessage("", types.EventReply, &reply))
 }
@@ -384,6 +390,11 @@ func (chain *BlockChain) processMsg(msg *queue.Message, reqnum chan struct{}, cb
 		<-reqnum
 		atomic.AddInt32(&chain.runcount, -1)
 		chainlog.Debug("process", "cost", types.Since(beg), "msg", types.GetEventName(int(msg.Ty)))
+		if r := recover(); r != nil {
+			chainlog.Error("panic error", "err", r)
+			msg.Reply(chain.client.NewMessage("", msg.Ty, fmt.Errorf("%s:%v", types.ErrExecPanic.Error(), r)))
+			return
+		}
 	}()
 	cb(msg)
 }
@@ -455,7 +466,7 @@ func (chain *BlockChain) delParaChainBlockDetail(msg *queue.Message) {
 	reply.IsOk = true
 	parablockDetail = msg.Data.(*types.ParaChainBlockDetail)
 
-	chainlog.Debug("delParaChainBlockDetail", "height", parablockDetail.Blockdetail.Block.Height, "hash", common.HashHex(parablockDetail.Blockdetail.Block.Hash()))
+	chainlog.Debug("delParaChainBlockDetail", "height", parablockDetail.Blockdetail.Block.Height, "hash", common.HashHex(parablockDetail.Blockdetail.Block.Hash(chain.client.GetConfig())))
 
 	// 平行链上P2P模块关闭，不用广播区块
 	err := chain.ProcDelParaChainBlockMsg(false, parablockDetail, "self")
@@ -472,7 +483,15 @@ func (chain *BlockChain) delParaChainBlockDetail(msg *queue.Message) {
 func (chain *BlockChain) addParaChainBlockDetail(msg *queue.Message) {
 	parablockDetail := msg.Data.(*types.ParaChainBlockDetail)
 
-	chainlog.Debug("EventAddParaChainBlockDetail", "height", parablockDetail.Blockdetail.Block.Height, "hash", common.HashHex(parablockDetail.Blockdetail.Block.Hash()))
+	//根据配置chain.cfgBatchSync和parablockDetail.IsSync
+	//来决定写数据库时是否需要刷盘,主要是为了同步阶段提高执行区块的效率
+	if !parablockDetail.IsSync && !chain.cfgBatchSync {
+		atomic.CompareAndSwapInt32(&chain.isbatchsync, 1, 0)
+	} else {
+		atomic.CompareAndSwapInt32(&chain.isbatchsync, 0, 1)
+	}
+
+	chainlog.Debug("EventAddParaChainBlockDetail", "height", parablockDetail.Blockdetail.Block.Height, "hash", common.HashHex(parablockDetail.Blockdetail.Block.Hash(chain.client.GetConfig())))
 	// 平行链上P2P模块关闭，不用广播区块
 	blockDetail, err := chain.ProcAddParaChainBlockMsg(false, parablockDetail, "self")
 	if err != nil {
@@ -548,4 +567,47 @@ func (chain *BlockChain) GetMainSeqByHash(msg *queue.Message) {
 		return
 	}
 	msg.Reply(chain.client.NewMessage("rpc", types.EventReplyMainSeqByHash, &types.Int64{Data: seq}))
+}
+
+//setValueByKey 设置kv对到blockchain db中
+func (chain *BlockChain) setValueByKey(msg *queue.Message) {
+	var reply types.Reply
+	reply.IsOk = true
+	if !chain.isParaChain {
+		reply.IsOk = false
+		reply.Msg = []byte("Must Para Chain Support!")
+		msg.Reply(chain.client.NewMessage("", types.EventReply, &reply))
+		return
+	}
+	kvs := (msg.Data).(*types.LocalDBSet)
+	err := chain.SetValueByKey(kvs)
+	if err != nil {
+		chainlog.Error("setValueByKey", "err", err.Error())
+		reply.IsOk = false
+		reply.Msg = []byte(err.Error())
+	}
+	msg.Reply(chain.client.NewMessage("", types.EventReply, &reply))
+}
+
+//GetValueByKey 获取value通过key从blockchain db中
+func (chain *BlockChain) getValueByKey(msg *queue.Message) {
+	if !chain.isParaChain {
+		msg.Reply(chain.client.NewMessage("", types.EventLocalReplyValue, nil))
+		return
+	}
+	keys := (msg.Data).(*types.LocalDBGet)
+	values := chain.GetValueByKey(keys)
+	msg.Reply(chain.client.NewMessage("", types.EventLocalReplyValue, values))
+}
+
+//getParaTxByTitle //通过平行链title获取平行链的交易
+func (chain *BlockChain) getParaTxByTitle(msg *queue.Message) {
+	req := (msg.Data).(*types.ReqParaTxByTitle)
+	reply, err := chain.GetParaTxByTitle(req)
+	if err != nil {
+		chainlog.Error("getParaTxByTitle", "req", req, "err", err.Error())
+		msg.Reply(chain.client.NewMessage("", types.EventReplyParaTxByTitle, err))
+		return
+	}
+	msg.Reply(chain.client.NewMessage("", types.EventReplyParaTxByTitle, reply))
 }

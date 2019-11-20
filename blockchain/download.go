@@ -114,6 +114,7 @@ func (chain *BlockChain) ReadBlockToExec(height int64, isNewStart bool) {
 	var waitCount ErrCountInfo
 	waitCount.Height = 0
 	waitCount.Count = 0
+	cfg := chain.client.GetConfig()
 	for {
 		curheight := chain.GetBlockHeight()
 		peerMaxBlkHeight := chain.GetPeerMaxBlkHeight()
@@ -164,15 +165,15 @@ func (chain *BlockChain) ReadBlockToExec(height int64, isNewStart bool) {
 			if isNewStart && chain.downLoadTask.InProgress() {
 				Err := chain.downLoadTask.Cancel()
 				if Err != nil {
-					synlog.Error("ReadBlockToExec:downLoadTask.Cancel!", "height", block.Height, "hash", common.ToHex(block.Hash()), "isNewStart", isNewStart, "err", Err)
+					synlog.Error("ReadBlockToExec:downLoadTask.Cancel!", "height", block.Height, "hash", common.ToHex(block.Hash(cfg)), "isNewStart", isNewStart, "err", Err)
 				}
 				chain.DefaultDownLoadInfo()
 			}
 			chain.cancelFastDownLoadFlag(isNewStart)
-			synlog.Error("ReadBlockToExec:ProcessBlock:err!", "height", block.Height, "hash", common.ToHex(block.Hash()), "isNewStart", isNewStart, "err", err)
+			synlog.Error("ReadBlockToExec:ProcessBlock:err!", "height", block.Height, "hash", common.ToHex(block.Hash(cfg)), "isNewStart", isNewStart, "err", err)
 			break
 		}
-		synlog.Debug("ReadBlockToExec:ProcessBlock:success!", "height", block.Height, "ismain", ismain, "isorphan", isorphan, "hash", common.ToHex(block.Hash()))
+		synlog.Debug("ReadBlockToExec:ProcessBlock:success!", "height", block.Height, "ismain", ismain, "isorphan", isorphan, "hash", common.ToHex(block.Hash(cfg)))
 	}
 }
 
@@ -206,7 +207,7 @@ func (chain *BlockChain) ReadBlockByHeight(height int64) (*types.Block, error) {
 }
 
 //WriteBlockToDbTemp 快速下载的block临时存贮到数据库
-func (chain *BlockChain) WriteBlockToDbTemp(block *types.Block) error {
+func (chain *BlockChain) WriteBlockToDbTemp(block *types.Block, lastHeightSave bool) error {
 	if block == nil {
 		panic("WriteBlockToDbTemp block is nil")
 	}
@@ -225,9 +226,15 @@ func (chain *BlockChain) WriteBlockToDbTemp(block *types.Block) error {
 		chainlog.Error("WriteBlockToDbTemp:Marshal", "height", block.Height)
 	}
 	newbatch.Set(calcHeightToTempBlockKey(block.Height), blockByte)
-	heightbytes := types.Encode(&types.Int64{Data: block.Height})
-	newbatch.Set(calcLastTempBlockHeightKey(), heightbytes)
-	return newbatch.Write()
+	if lastHeightSave {
+		heightbytes := types.Encode(&types.Int64{Data: block.Height})
+		newbatch.Set(calcLastTempBlockHeightKey(), heightbytes)
+	}
+	err = newbatch.Write()
+	if err != nil {
+		panic(err)
+	}
+	return nil
 }
 
 //GetLastTempBlockHeight 从数据库中获取快速下载的最新的block高度
@@ -328,6 +335,25 @@ func (chain *BlockChain) ReqDownLoadBlocks() {
 		err := chain.FetchBlock(info.StartHeight, info.EndHeight, info.Pids, true)
 		if err != nil {
 			synlog.Error("ReqDownLoadBlocks:FetchBlock", "err", err)
+		}
+	}
+}
+
+//DownLoadTimeOutProc 快速下载模式下载区块超时的处理函数
+func (chain *BlockChain) DownLoadTimeOutProc(height int64) {
+	info := chain.GetDownLoadInfo()
+	synlog.Info("DownLoadTimeOutProc", "timeoutheight", height, "StartHeight", info.StartHeight, "EndHeight", info.EndHeight)
+
+	if info.StartHeight != -1 && info.EndHeight != -1 && info.Pids != nil {
+		//从超时的高度继续下载区块
+		if info.StartHeight > height {
+			chain.UpdateDownLoadStartHeight(height)
+			info.StartHeight = height
+		}
+		synlog.Info("DownLoadTimeOutProc:FetchBlock", "StartHeight", info.StartHeight, "EndHeight", info.EndHeight, "pids", len(info.Pids))
+		err := chain.FetchBlock(info.StartHeight, info.EndHeight, info.Pids, true)
+		if err != nil {
+			synlog.Error("DownLoadTimeOutProc:FetchBlock", "err", err)
 		}
 	}
 }

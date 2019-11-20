@@ -118,7 +118,9 @@ func (d *DriverBase) ExecutorOrder() int64 {
 
 //GetLastHash 获取最后区块的hash，主链和平行链不同
 func (d *DriverBase) GetLastHash() []byte {
-	if types.IsPara() {
+	types.AssertConfig(d.api)
+	cfg := d.api.GetConfig()
+	if cfg.IsPara() {
 		return d.mainHash
 	}
 	return d.parentHash
@@ -194,32 +196,22 @@ func (d *DriverBase) SetChild(e Driver) {
 
 // ExecLocal local exec
 func (d *DriverBase) ExecLocal(tx *types.Transaction, receipt *types.ReceiptData, index int) (*types.LocalDBSet, error) {
-	var set types.LocalDBSet
 	lset, err := d.callLocal("ExecLocal_", tx, receipt, index)
-	if err != nil {
+	if err != nil || lset == nil { // 不能向上层返回LocalDBSet为nil, 以及error
 		blog.Debug("call ExecLocal", "tx.Execer", string(tx.Execer), "err", err)
-		return &set, nil
+		return &types.LocalDBSet{}, nil
 	}
-	//merge
-	if lset != nil && lset.KV != nil {
-		set.KV = append(set.KV, lset.KV...)
-	}
-	return &set, nil
+	return lset, nil
 }
 
 // ExecDelLocal local execdel
 func (d *DriverBase) ExecDelLocal(tx *types.Transaction, receipt *types.ReceiptData, index int) (*types.LocalDBSet, error) {
-	var set types.LocalDBSet
 	lset, err := d.callLocal("ExecDelLocal_", tx, receipt, index)
-	if err != nil {
+	if err != nil || lset == nil { // 不能向上层返回LocalDBSet为nil, 以及error
 		blog.Error("call ExecDelLocal", "execer", string(tx.Execer), "err", err)
-		return &set, nil
+		return &types.LocalDBSet{}, nil
 	}
-	//merge
-	if lset != nil && lset.KV != nil {
-		set.KV = append(set.KV, lset.KV...)
-	}
-	return &set, nil
+	return lset, nil
 }
 
 func (d *DriverBase) callLocal(prefix string, tx *types.Transaction, receipt *types.ReceiptData, index int) (set *types.LocalDBSet, err error) {
@@ -275,16 +267,15 @@ func (d *DriverBase) callLocal(prefix string, tx *types.Transaction, receipt *ty
 }
 
 // CheckAddress check address
-func CheckAddress(addr string, height int64) error {
+func CheckAddress(cfg *types.Chain33Config, addr string, height int64) error {
 	if IsDriverAddress(addr, height) {
 		return nil
 	}
 	err := address.CheckAddress(addr)
-
-	if !types.IsFork(height, "ForkMultiSignAddress") && err == address.ErrCheckVersion {
+	if !cfg.IsFork(height, "ForkMultiSignAddress") && err == address.ErrCheckVersion {
 		return nil
 	}
-	if !types.IsFork(height, "ForkBase58AddressCheck") && err == address.ErrAddressChecksum {
+	if !cfg.IsFork(height, "ForkBase58AddressCheck") && err == address.ErrAddressChecksum {
 		return nil
 	}
 
@@ -358,7 +349,8 @@ func (d *DriverBase) CheckTx(tx *types.Transaction, index int) error {
 func (d *DriverBase) SetStateDB(db dbm.KV) {
 	if d.coinsaccount == nil {
 		//log.Error("new CoinsAccount")
-		d.coinsaccount = account.NewCoinsAccount()
+		types.AssertConfig(d.api)
+		d.coinsaccount = account.NewCoinsAccount(d.api.GetConfig())
 	}
 	d.statedb = db
 	d.coinsaccount.SetDB(db)
@@ -374,10 +366,12 @@ func (d *DriverBase) GetTxGroup(index int) ([]*types.Transaction, error) {
 	if c <= 0 || c > int(types.MaxTxGroupSize) {
 		return nil, types.ErrTxGroupCount
 	}
+	types.AssertConfig(d.api)
+	cfg := d.api.GetConfig()
 	for i := index; i >= 0 && i >= index-c; i-- {
 		if bytes.Equal(d.txs[i].Header, d.txs[i].Hash()) { //find header
 			txgroup := types.Transactions{Txs: d.txs[i : i+c]}
-			err := txgroup.Check(d.GetHeight(), types.GInt("MinFee"), types.GInt("MaxFee"))
+			err := txgroup.Check(cfg, d.GetHeight(), cfg.GInt("MinFee"), cfg.GInt("MaxFee"))
 			if err != nil {
 				return nil, err
 			}
@@ -419,7 +413,8 @@ func (d *DriverBase) GetHeight() int64 {
 
 // GetMainHeight return height
 func (d *DriverBase) GetMainHeight() int64 {
-	if types.IsPara() {
+	types.AssertConfig(d.api)
+	if d.api.GetConfig().IsPara() {
 		return d.mainHeight
 	}
 	return d.height
@@ -474,7 +469,8 @@ func (d *DriverBase) CheckSignatureData(tx *types.Transaction, index int) bool {
 // GetCoinsAccount get coins account
 func (d *DriverBase) GetCoinsAccount() *account.DB {
 	if d.coinsaccount == nil {
-		d.coinsaccount = account.NewCoinsAccount()
+		types.AssertConfig(d.api)
+		d.coinsaccount = account.NewCoinsAccount(d.api.GetConfig())
 		d.coinsaccount.SetDB(d.statedb)
 	}
 	return d.coinsaccount

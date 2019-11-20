@@ -44,7 +44,8 @@ func (mem *Mempool) checkTxListRemote(txlist *types.ExecTxList) (*types.ReceiptC
 }
 
 func (mem *Mempool) checkExpireValid(tx *types.Transaction) bool {
-	if tx.IsExpire(mem.header.GetHeight(), mem.header.GetBlockTime()) {
+	types.AssertConfig(mem.client)
+	if tx.IsExpire(mem.client.GetConfig(), mem.header.GetHeight(), mem.header.GetBlockTime()) {
 		return false
 	}
 	if tx.Expire > 1000000000 && tx.Expire < types.Now().Unix()+int64(time.Minute/time.Second) {
@@ -87,7 +88,8 @@ func (mem *Mempool) checkTxs(msg *queue.Message) *queue.Message {
 	txmsg := msg.GetData().(*types.Transaction)
 	//普通的交易
 	tx := types.NewTransactionCache(txmsg)
-	err := tx.Check(header.GetHeight(), mem.cfg.MinTxFee, mem.cfg.MaxTxFee)
+	types.AssertConfig(mem.client)
+	err := tx.Check(mem.client.GetConfig(), header.GetHeight(), mem.cfg.MinTxFee, mem.cfg.MaxTxFee)
 	if err != nil {
 		msg.Data = err
 		return msg
@@ -124,7 +126,7 @@ func (mem *Mempool) checkTxs(msg *queue.Message) *queue.Message {
 // checkLevelFee 检查阶梯手续费
 func (mem *Mempool) checkLevelFee(tx *types.TransactionCache) error {
 	//获取mempool里所有交易手续费总和
-	feeRate := mem.getLevelFeeRate(mem.cfg.MinTxFee)
+	feeRate := mem.getLevelFeeRate(mem.cfg.MinTxFee, 0, 0)
 	totalfee, err := tx.GetTotalFee(feeRate)
 	if err != nil {
 		return err

@@ -47,10 +47,13 @@ func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) []*pb.Peer
 	dstAddr := startAddr
 	for {
 		reply, err := bs.find(dstAddr, hashs)
-		if err != nil {
+		if err != nil  {
 			break
 		}
-		replys = append(replys, reply)
+
+		if len(reply.Infos)>0 {
+			replys = append(replys, reply)
+		}
 
 		for _, peerInfo := range reply.Peers {
 			ipport := peerInfo.Ip+":"+strconv.Itoa(int(peerInfo.Port))

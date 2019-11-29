@@ -27,7 +27,6 @@ func (ba *BroadcastAnalyzer) Analyze(replys []*pb.PeersBroadInfoReply) *Broadcas
 	startNode := ""
 	endNode   := ""
 	for _, reply := range replys {
-
 		singleStartTime := int64(^uint64(0) >> 1)
 		for _, info := range reply.Infos {
 			if info.RecvTime < startTime {

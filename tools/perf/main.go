@@ -27,9 +27,9 @@ func execCmd(s string) {
 
 
 func init() {
-	flag.StringVar(&startAddr, "startAddr", "", "start Address,")
+	flag.StringVar(&startAddr, "startAddr", "", "start Address,for example:127.0.0.1:13802")
 	flag.StringVar(&hash, "hash", "", "block hash or tx hash")
-	flag.StringVar(&output, "output", "", "output to png image file")
+	flag.StringVar(&output, "output", "", "output to png image file,for example:./my.png")
 	flag.Parse()
 }
 func main() {
@@ -75,5 +75,6 @@ func main() {
 	// output to png image file
 	toPng := "dot " + gvPath  + " -T png -o " + output
 	execCmd(toPng)
+	fmt.Println("graph output=",output)
 	//fmt.Println("Now you can run this command for png output:\n"+toPng)
 }

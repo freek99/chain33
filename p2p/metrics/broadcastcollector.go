@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MaxPerfCacheSize = 10240
+	MaxPerfCacheSize = 102400
 )
 
 type BroadcastCollector struct {
@@ -17,9 +17,10 @@ type BroadcastCollector struct {
 }
 
 func (bc *BroadcastCollector) Init() {
+	bc.enable = true
+
 	var err error
 	bc.data, err = lru.New(MaxPerfCacheSize)
-	bc.enable = true
 	if err != nil {
 		bc.enable = false
 	}
@@ -43,8 +44,7 @@ func (bc *BroadcastCollector) Add(item *pb.PeersBroadInfo) {
 	}
 }
 
-
-func (bc *BroadcastCollector) Get(itemID string) []*pb.PeersBroadInfo {
+func (bc *BroadcastCollector) Get(hashs []string) []*pb.PeersBroadInfo {
 
 	var items []*pb.PeersBroadInfo
 
@@ -55,11 +55,13 @@ func (bc *BroadcastCollector) Get(itemID string) []*pb.PeersBroadInfo {
 	Keys := bc.data.Keys()
 	for _, key := range Keys {
 		keyStr := key.(string)
-		itemExists := strings.Contains(keyStr, itemID)
-		if itemExists {
-			item, ok := bc.data.Get(key)
-			if ok {
-				items = append(items, item.(*pb.PeersBroadInfo))
+        for _,hash := range hashs {
+			isExist := strings.Contains(keyStr, hash)
+			if isExist {
+				if item, ok := bc.data.Get(key); ok {
+					items = append(items, item.(*pb.PeersBroadInfo))
+					break
+				}
 			}
 		}
 	}

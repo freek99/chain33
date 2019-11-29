@@ -144,8 +144,17 @@ func (m *P2PPeerInfo) GetHeader() *Header {
 	return nil
 }
 
+type P2PPeersBroadInfoParams struct {
+	Hashs []string `protobuf:"bytes,1,rep,name=hashs" json:"hashs,omitempty"`
+}
+
+func (m *P2PPeersBroadInfoParams) Reset()         { *m = P2PPeersBroadInfoParams{} }
+func (m *P2PPeersBroadInfoParams) String() string { return proto.CompactTextString(m) }
+func (*P2PPeersBroadInfoParams) ProtoMessage()    {}
+
 type PeersBroadInfoReply struct {
 	Infos []*PeersBroadInfo `protobuf:"bytes,1,rep,name=infos" json:"infos,omitempty"`
+	Peers []*PeersInfo `protobuf:"bytes,2,rep,name=peers" json:"peers,omitempty"`
 }
 
 func (m *PeersBroadInfoReply) Reset()         { *m = PeersBroadInfoReply{} }
@@ -159,12 +168,21 @@ func (m *PeersBroadInfoReply) GetInfos() []*PeersBroadInfo {
 	return nil
 }
 
+func (m *PeersBroadInfoReply) GetPeers() []*PeersInfo {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
 type PeersBroadInfo struct {
-	Hash         string `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
-	SrcIPPort string `protobuf:"bytes,2,opt,name=srcIPPort" json:"srcIPPort,omitempty"`
-	DstIPPort     string `protobuf:"bytes,3,opt,name=dstIPPort" json:"dstIPPort,omitempty"`
-	Size         int32  `protobuf:"varint,4,opt,name=size" json:"size,omitempty"`
-	RecvTime     int64  `protobuf:"varint,5,opt,name=recvtime" json:"recvtime,omitempty"`
+	Hash      string `protobuf:"bytes,1,opt" json:"Hash,omitempty"`
+	SrcPID    string `protobuf:"bytes,2,opt" json:"SrcPID,omitempty"`
+	DstPID    string `protobuf:"bytes,3,opt" json:"DstPID,omitempty"`
+	SrcIPPort string `protobuf:"bytes,4,opt" json:"SrcIPPort,omitempty"`
+	DstIPPort string `protobuf:"bytes,5,opt" json:"DstIPPort,omitempty"`
+	Size      int32  `protobuf:"varint,6,opt" json:"Size,omitempty"`
+	RecvTime  int64  `protobuf:"varint,7,opt" json:"RecvTime,omitempty"`
 }
 
 func (m *PeersBroadInfo) Reset()         { *m = PeersBroadInfo{} }
@@ -2469,7 +2487,9 @@ type P2PgserviceClient interface {
 	// grpc 收集inpeers
 	CollectInPeers(ctx context.Context, in *P2PPing, opts ...grpc.CallOption) (*PeerList, error)
 	CollectInPeers2(ctx context.Context, in *P2PPing, opts ...grpc.CallOption) (*PeersReply, error)
-	GetBroadcastData(ctx context.Context, in *P2PPing, opts ...grpc.CallOption) (*PeersBroadInfoReply, error)
+	// grpc 收集广播信息数据
+	GetPeersBroadInfo(ctx context.Context, in *P2PPeersBroadInfoParams, opts ...grpc.CallOption) (*PeersBroadInfoReply, error)
+
 }
 
 type p2PgserviceClient struct {
@@ -2704,9 +2724,9 @@ func (c *p2PgserviceClient) CollectInPeers2(ctx context.Context, in *P2PPing, op
 	return out, nil
 }
 
-func (c *p2PgserviceClient) GetBroadcastData(ctx context.Context, in *P2PPing, opts ...grpc.CallOption) (*PeersBroadInfoReply, error) {
+func (c *p2PgserviceClient) GetPeersBroadInfo(ctx context.Context, in *P2PPeersBroadInfoParams, opts ...grpc.CallOption) (*PeersBroadInfoReply, error) {
 	out := new(PeersBroadInfoReply)
-	err := c.cc.Invoke(ctx, "/types.p2pgservice/GetBroadcastData", in, out, opts...)
+	err := grpc.Invoke(ctx, "/types.p2pgservice/GetPeersBroadInfo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2747,7 +2767,8 @@ type P2PgserviceServer interface {
 	// grpc 收集inpeers
 	CollectInPeers(context.Context, *P2PPing) (*PeerList, error)
 	CollectInPeers2(context.Context, *P2PPing) (*PeersReply, error)
-	GetBroadcastData(context.Context, *P2PPing) (*PeersBroadInfoReply, error)
+	// grpc 收集广播信息数据
+	GetPeersBroadInfo(context.Context, *P2PPeersBroadInfoParams) (*PeersBroadInfoReply, error)
 }
 
 func RegisterP2PgserviceServer(s *grpc.Server, srv P2PgserviceServer) {
@@ -3074,23 +3095,25 @@ func _P2Pgservice_CollectInPeers2_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _P2Pgservice_GetBroadcastData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(P2PPing)
+
+func _P2Pgservice_GetPeersBroadInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(P2PPeersBroadInfoParams)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(P2PgserviceServer).GetBroadcastData(ctx, in)
+		return srv.(P2PgserviceServer).GetPeersBroadInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/types.p2pgservice/GetBroadcastData",
+		FullMethod: "/types.p2pgservice/GetPeersBroadInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(P2PgserviceServer).GetBroadcastData(ctx, req.(*P2PPing))
+		return srv.(P2PgserviceServer).GetPeersBroadInfo(ctx, req.(*P2PPeersBroadInfoParams))
 	}
 	return interceptor(ctx, in, info, handler)
 }
+
 
 var _P2Pgservice_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "types.p2pgservice",
@@ -3153,8 +3176,8 @@ var _P2Pgservice_serviceDesc = grpc.ServiceDesc{
 			Handler:    _P2Pgservice_CollectInPeers2_Handler,
 		},
 		{
-			MethodName: "GetBroadcastData",
-			Handler:    _P2Pgservice_GetBroadcastData_Handler,
+			MethodName: "GetPeersBroadInfo",
+			Handler:    _P2Pgservice_GetPeersBroadInfo_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -12,6 +12,7 @@ require (
 	github.com/NebulousLabs/merkletree v0.0.0-20181025040823-2a1d1d1dc33c // indirect
 	github.com/XiaoMi/pegasus-go-client v0.0.0-20181029071519-9400942c5d1c
 	github.com/apache/thrift v0.0.0-20171203172758-327ebb6c2b6d // indirect
+	github.com/awalterschulze/gographviz v0.0.0-20190522210029-fa59802746ab
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/btcsuite/btcd v0.0.0-20181013004428-67e573d211ac
 	github.com/coreos/bbolt v1.3.0 // indirect

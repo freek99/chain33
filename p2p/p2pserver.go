@@ -6,7 +6,6 @@ package p2p
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -544,13 +543,7 @@ func (s *P2pserver) CollectInPeers(ctx context.Context, in *pb.P2PPing) (*pb.Pee
 	return &pb.PeerList{Peers: p2pPeers}, nil
 }
 
-// CollectInPeers2 collect external network nodes of connect their own
-func (s *P2pserver) CollectInPeers2(ctx context.Context, in *pb.P2PPing) (*pb.PeersReply, error) {
-	log.Debug("CollectInPeers2")
-	if !P2pComm.CheckSign(in) {
-		log.Debug("CollectInPeers", "ping", "signatrue err")
-		return nil, pb.ErrPing
-	}
+func (s *P2pserver) getPeers() []*pb.PeersInfo {
 	inPeers := s.getInBoundPeers()
 	var p2pPeers []*pb.PeersInfo
 	for _, inpeer := range inPeers {
@@ -567,27 +560,27 @@ func (s *P2pserver) CollectInPeers2(ctx context.Context, in *pb.P2PPing) (*pb.Pe
 			Softversion: inpeer.softversion, P2Pversion: inpeer.p2pversion}) ///仅用name,addr,port字段，用于统计peer num.
 	}
 
+	return p2pPeers
+}
+
+// CollectInPeers2 collect external network nodes of connect their own
+func (s *P2pserver) CollectInPeers2(ctx context.Context, in *pb.P2PPing) (*pb.PeersReply, error) {
+	log.Debug("CollectInPeers2")
+	if !P2pComm.CheckSign(in) {
+		log.Debug("CollectInPeers", "ping", "signatrue err")
+		return nil, pb.ErrPing
+	}
+
+	p2pPeers := s.getPeers()
 	return &pb.PeersReply{Peers: p2pPeers}, nil
 }
 
-
 // GetBroadcastData collect broadcast data
-func (s *P2pserver) GetBroadcastData(ctx context.Context, in *pb.P2PPing) (*pb.PeersBroadInfoReply, error) {
-	//log.Info("GetBroadcastData")
-	//if !P2pComm.CheckSign(in) {
-	//	log.Info("GetBroadcastData", "ping", "signatrue err")
-	//	return nil, pb.ErrPing
-	//}
-
-	data := s.node.bcCollector.Get(in.Addr)
-
-	if len(data) <= 0 {
-		return nil, errors.New("no more info ")
-	}
-
-	return &pb.PeersBroadInfoReply{Infos: data}, nil
+func (s *P2pserver) GetPeersBroadInfo(ctx context.Context, in *pb.P2PPeersBroadInfoParams) (*pb.PeersBroadInfoReply, error) {
+	infos := s.node.bcCollector.Get(in.Hashs)
+	peers := s.getPeers()
+	return &pb.PeersBroadInfoReply{Infos: infos,Peers:peers}, nil
 }
-
 
 func (s *P2pserver) loadMempool() (map[string]*pb.Transaction, error) {
 

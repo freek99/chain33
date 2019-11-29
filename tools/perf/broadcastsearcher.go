@@ -1,10 +1,10 @@
-package metrics
+package main
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
+	"strconv"
 
 	pb "github.com/33cn/chain33/types"
 	"google.golang.org/grpc"
@@ -15,7 +15,7 @@ const MaxCallRecvMsgSize = 100 * 1024 * 1024
 type BroadcastSearcher struct {
 }
 
-func (bs *BroadcastSearcher) find(dstAddr string, hash string) (*pb.PeersBroadInfoReply, error) {
+func (bs *BroadcastSearcher) find(dstAddr string, hashs []string) (*pb.PeersBroadInfoReply, error) {
 	conn, err := grpc.Dial(
 		dstAddr,
 		grpc.WithInsecure(),
@@ -27,9 +27,9 @@ func (bs *BroadcastSearcher) find(dstAddr string, hash string) (*pb.PeersBroadIn
 	}
 
 	gcli := pb.NewP2PgserviceClient(conn)
-	resp, err := gcli.GetBroadcastData(
+	resp, err := gcli.GetPeersBroadInfo(
 		context.Background(),
-		&pb.P2PPing{Nonce: int64(rand.Int31n(102040)), Addr: hash, Port: 13802},
+		&pb.P2PPeersBroadInfoParams{hashs},
 		grpc.FailFast(true))
 	if err != nil {
 		fmt.Println(err)
@@ -39,21 +39,23 @@ func (bs *BroadcastSearcher) find(dstAddr string, hash string) (*pb.PeersBroadIn
 	return resp, nil
 }
 
-func (bs *BroadcastSearcher) Search(startAddr string, hash string) []*pb.PeersBroadInfoReply {
+
+func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) []*pb.PeersBroadInfoReply {
 	usedPeers := make(map[string]string)
 	var replys []*pb.PeersBroadInfoReply
 
 	dstAddr := startAddr
 	for {
-		reply, err := bs.find(dstAddr, hash)
+		reply, err := bs.find(dstAddr, hashs)
 		if err != nil {
 			break
 		}
 		replys = append(replys, reply)
 
-		for _, info := range reply.Infos {
-			if usedPeers[info.SrcIPPort] == "" {
-				usedPeers[info.SrcIPPort] = ""
+		for _, peerInfo := range reply.Peers {
+			ipport := peerInfo.Ip+":"+strconv.Itoa(int(peerInfo.Port))
+			if usedPeers[ipport] == "" {
+				usedPeers[ipport] = ""
 			}
 		}
 

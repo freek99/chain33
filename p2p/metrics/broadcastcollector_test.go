@@ -1,9 +1,10 @@
 package metrics
 
 import (
+	"testing"
+
 	"github.com/33cn/chain33/types"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func Test(t *testing.T) {
@@ -26,9 +27,9 @@ func Test(t *testing.T) {
 		types.Now().UnixNano(),
 	})
 	var hashs []string
-	hashs = append(hashs,"1111")
-	hashs = append(hashs,"2222")
+	hashs = append(hashs, "1111")
+	hashs = append(hashs, "2222")
 	reply := bc.Get(hashs)
 
-	assert.Equal(t,true, len(reply) == 2)
+	assert.Equal(t, true, len(reply) == 2)
 }

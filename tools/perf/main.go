@@ -25,7 +25,6 @@ func execCmd(s string) {
 	fmt.Printf("%s", out.String())
 }
 
-
 func init() {
 	flag.StringVar(&startAddr, "startAddr", "", "start Address,for example:127.0.0.1:13802")
 	flag.StringVar(&hash, "hash", "", "block hash or tx hash")
@@ -34,16 +33,16 @@ func init() {
 }
 func main() {
 	// collect and analyze data
-	if startAddr == ""  {
-		fmt.Println("err=","startAddr can't be empty")
+	if startAddr == "" {
+		fmt.Println("err=", "startAddr can't be empty")
 		return
 	}
-	if hash == ""  {
-		fmt.Println("err=","hash can't be empty")
+	if hash == "" {
+		fmt.Println("err=", "hash can't be empty")
 		return
 	}
-	if output == ""  {
-		fmt.Println("err=","output can't be empty")
+	if output == "" {
+		fmt.Println("err=", "output can't be empty")
 		return
 	}
 
@@ -64,15 +63,15 @@ func main() {
 	)
 
 	// output to GraphViz file
-	gvPath := "/tmp/"+hash+".gv"
+	gvPath := "/tmp/" + hash + ".gv"
 
 	viewer := &BroadcastViewer{}
 	graphvizData := viewer.ExportToGraphVizData(replys)
 	ioutil.WriteFile(gvPath, graphvizData, 0666)
 
 	// output to png image file
-	toPng := "dot " + gvPath  + " -T png -o " + output
+	toPng := "dot " + gvPath + " -T png -o " + output
 	execCmd(toPng)
-	fmt.Println("graph=",output)
+	fmt.Println("graph=", output)
 	//fmt.Println("Now you can run this command for png output:\n"+toPng)
 }

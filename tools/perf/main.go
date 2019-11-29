@@ -35,13 +35,18 @@ func init() {
 func main() {
 	// collect and analyze data
 	if startAddr == ""  {
-		fmt.Println("startAddr can't be empty")
+		fmt.Println("err=","startAddr can't be empty")
 		return
 	}
 	if hash == ""  {
-		fmt.Println("hash can't be empty")
+		fmt.Println("err=","hash can't be empty")
 		return
 	}
+	if output == ""  {
+		fmt.Println("err=","output can't be empty")
+		return
+	}
+
 	var hashs []string
 	hashs = append(hashs, hash)
 
@@ -59,11 +64,6 @@ func main() {
 	)
 
 	// output to GraphViz file
-	if output == ""  {
-		fmt.Println("output can't be empty")
-		return
-	}
-
 	gvPath := "/tmp/"+hash+".gv"
 
 	viewer := &BroadcastViewer{}
@@ -73,6 +73,6 @@ func main() {
 	// output to png image file
 	toPng := "dot " + gvPath  + " -T png -o " + output
 	execCmd(toPng)
-	fmt.Println("graph output=",output)
+	fmt.Println("graph=",output)
 	//fmt.Println("Now you can run this command for png output:\n"+toPng)
 }

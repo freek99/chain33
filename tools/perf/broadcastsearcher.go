@@ -69,11 +69,11 @@ func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) map[string
 			}
 		}
 
-		if newDstAddr != "" {
-			dstAddr = newDstAddr
-		} else {
+		if newDstAddr == "" {
 			break
 		}
+
+		dstAddr = newDstAddr
 	}
 
 	return replys

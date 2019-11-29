@@ -393,9 +393,7 @@ message PeersBroadInfoReply {
 message PeersBroadInfo {
     string Hash  =1;
     string SrcPID = 2;
-    string DstPID = 3;
-    string SrcIPPort = 4;
-    string DstIPPort = 5;
-    int32  Size  = 6;
-    int64  RecvTime = 7;
+    string SrcIPPort = 3;
+    int32  Size  = 4;
+    int64  RecvTime = 5;
 }

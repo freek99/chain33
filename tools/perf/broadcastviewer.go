@@ -11,15 +11,15 @@ import (
 type BroadcastViewer struct {
 }
 
-func (bv *BroadcastViewer) ExportToGraphVizData(replys []*pb.PeersBroadInfoReply) []byte {
+func (bv *BroadcastViewer) ExportToGraphVizData(replys map[string]*pb.PeersBroadInfoReply) []byte {
 
 	graph := gographviz.NewGraph()
 	graphAst, _ := gographviz.Parse([]byte(`digraph G{}`))
 	gographviz.Analyse(graphAst, graph)
 
-	for _, reply := range replys {
-		for _, info := range reply.Infos {
-			tmpDstAddr := strings.Replace(info.DstIPPort, ":", ".", -1)
+	for fromIPPort, reply := range replys {
+		for _,info := range reply.Infos {
+			tmpDstAddr := strings.Replace(fromIPPort, ":", ".", -1)
 			tmpDstAddr = strings.Replace(tmpDstAddr, ".", "", -1)
 			tmpSrcAddr := strings.Replace(info.SrcIPPort, ":", ".", -1)
 			tmpSrcAddr = strings.Replace(tmpSrcAddr, ".", "", -1)

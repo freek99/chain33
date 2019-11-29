@@ -178,11 +178,9 @@ func (m *PeersBroadInfoReply) GetPeers() []*PeersInfo {
 type PeersBroadInfo struct {
 	Hash      string `protobuf:"bytes,1,opt" json:"Hash,omitempty"`
 	SrcPID    string `protobuf:"bytes,2,opt" json:"SrcPID,omitempty"`
-	DstPID    string `protobuf:"bytes,3,opt" json:"DstPID,omitempty"`
-	SrcIPPort string `protobuf:"bytes,4,opt" json:"SrcIPPort,omitempty"`
-	DstIPPort string `protobuf:"bytes,5,opt" json:"DstIPPort,omitempty"`
-	Size      int32  `protobuf:"varint,6,opt" json:"Size,omitempty"`
-	RecvTime  int64  `protobuf:"varint,7,opt" json:"RecvTime,omitempty"`
+	SrcIPPort string `protobuf:"bytes,3,opt" json:"SrcIPPort,omitempty"`
+	Size      int32  `protobuf:"varint,4,opt" json:"Size,omitempty"`
+	RecvTime  int64  `protobuf:"varint,5,opt" json:"RecvTime,omitempty"`
 }
 
 func (m *PeersBroadInfo) Reset()         { *m = PeersBroadInfo{} }

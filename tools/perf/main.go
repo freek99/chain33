@@ -56,8 +56,6 @@ func main() {
 		"\nduration1=", stat.Duration1, "ms",
 		"\nduration2=", stat.Duration2, "ms",
 		"\ntimes=", stat.Times,
-		"\nstartNode=", stat.StartNode,
-		"\nendNode=", stat.EndNode,
 	)
 
 	// output to GraphViz file

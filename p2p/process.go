@@ -59,9 +59,7 @@ func (n *Node) processRecvP2P(data *types.BroadCastData, pid string, pubPeerFunc
 		n.bcCollector.Add(&types.PeersBroadInfo{
 			"0x" + hex.EncodeToString(tx.GetTx().Hash()),
 			pid,
-			"",
 			peerAddr,
-			n.nodeInfo.listenAddr.String(),
 			int32(tx.GetTx().Size()),
 			types.Now().UnixNano(),
 		})
@@ -74,9 +72,7 @@ func (n *Node) processRecvP2P(data *types.BroadCastData, pid string, pubPeerFunc
 		n.bcCollector.Add(&types.PeersBroadInfo{
 			"0x" + hex.EncodeToString(blc.GetBlock().Hash(n.cfg)),
 			pid,
-			"",
 			peerAddr,
-			n.nodeInfo.listenAddr.String(),
 			int32(blc.GetBlock().Size()),
 			types.Now().UnixNano(),
 		})

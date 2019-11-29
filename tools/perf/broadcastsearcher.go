@@ -40,9 +40,9 @@ func (bs *BroadcastSearcher) find(dstAddr string, hashs []string) (*pb.PeersBroa
 }
 
 
-func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) []*pb.PeersBroadInfoReply {
+func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) map[string]*pb.PeersBroadInfoReply {
 	usedPeers := make(map[string]string)
-	var replys []*pb.PeersBroadInfoReply
+	replys := make(map[string]*pb.PeersBroadInfoReply)
 
 	dstAddr := startAddr
 	for {
@@ -51,14 +51,12 @@ func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) []*pb.Peer
 			break
 		}
 
-		if len(reply.Infos)>0 {
-			replys = append(replys, reply)
-		}
+		replys[dstAddr] = reply
 
 		for _, peerInfo := range reply.Peers {
-			ipport := peerInfo.Ip+":"+strconv.Itoa(int(peerInfo.Port))
-			if usedPeers[ipport] == "" {
-				usedPeers[ipport] = ""
+			ipPort := peerInfo.Ip+":"+strconv.Itoa(int(peerInfo.Port))
+			if usedPeers[ipPort] == "" {
+				usedPeers[ipPort] = ""
 			}
 		}
 
@@ -69,7 +67,6 @@ func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) []*pb.Peer
 			if usedPeer == "" {
 				newDstAddr = peer
 				break
-			} else {
 			}
 		}
 

@@ -18,7 +18,7 @@ func (bv *BroadcastViewer) ExportToGraphVizData(replys map[string]*pb.PeersBroad
 	gographviz.Analyse(graphAst, graph)
 
 	for fromIPPort, reply := range replys {
-		for _,info := range reply.Infos {
+		for _, info := range reply.Infos {
 			tmpDstAddr := strings.Replace(fromIPPort, ":", ".", -1)
 			tmpDstAddr = strings.Replace(tmpDstAddr, ".", "", -1)
 			tmpSrcAddr := strings.Replace(info.SrcIPPort, ":", ".", -1)

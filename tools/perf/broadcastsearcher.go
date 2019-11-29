@@ -39,7 +39,6 @@ func (bs *BroadcastSearcher) find(dstAddr string, hashs []string) (*pb.PeersBroa
 	return resp, nil
 }
 
-
 func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) map[string]*pb.PeersBroadInfoReply {
 	usedPeers := make(map[string]string)
 	replys := make(map[string]*pb.PeersBroadInfoReply)
@@ -47,14 +46,14 @@ func (bs *BroadcastSearcher) Search(startAddr string, hashs []string) map[string
 	dstAddr := startAddr
 	for {
 		reply, err := bs.find(dstAddr, hashs)
-		if err != nil  {
+		if err != nil {
 			break
 		}
 
 		replys[dstAddr] = reply
 
 		for _, peerInfo := range reply.Peers {
-			ipPort := peerInfo.Ip+":"+strconv.Itoa(int(peerInfo.Port))
+			ipPort := peerInfo.Ip + ":" + strconv.Itoa(int(peerInfo.Port))
 			if usedPeers[ipPort] == "" {
 				usedPeers[ipPort] = ""
 			}

@@ -23,7 +23,7 @@ func (ba *BroadcastAnalyzer) Analyze(replys map[string]*pb.PeersBroadInfoReply) 
 	size := int32(0)
 	times := int32(0)
 	for _, reply := range replys {
-		if len(reply.Infos) <= 0  {
+		if len(reply.Infos) <= 0 {
 			continue
 		}
 

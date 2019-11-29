@@ -40,7 +40,7 @@ func (bc *BroadcastCollector) Len() int {
 
 func (bc *BroadcastCollector) Add(item *pb.PeersBroadInfo) {
 	if bc.enable {
-		bc.data.Add(bc.getKey(item), item)
+		bc.data.Add(bc.makeKey(item), item)
 	}
 }
 
@@ -52,22 +52,29 @@ func (bc *BroadcastCollector) Get(hashs []string) []*pb.PeersBroadInfo {
 		return items
 	}
 
-	Keys := bc.data.Keys()
-	for _, key := range Keys {
+	keys := bc.data.Keys()
+	for _, key := range keys {
 		keyStr := key.(string)
-        for _,hash := range hashs {
-			isExist := strings.Contains(keyStr, hash)
-			if isExist {
-				if item, ok := bc.data.Get(key); ok {
-					items = append(items, item.(*pb.PeersBroadInfo))
-					break
-				}
+		hashExist := false
+		for _, hash := range hashs {
+			hashExist = strings.Contains(keyStr, hash)
+			if hashExist {
+				break
 			}
 		}
+
+		if hashExist {
+			if item, ok := bc.data.Get(key); ok {
+				item := item.(*pb.PeersBroadInfo)
+				items = append(items, item)
+			}
+		}
+
 	}
+
 	return items
 }
 
-func (bc *BroadcastCollector) getKey(item *pb.PeersBroadInfo) string {
+func (bc *BroadcastCollector) makeKey(item *pb.PeersBroadInfo) string {
 	return item.Hash + "_" + item.SrcIPPort
 }

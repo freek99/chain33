@@ -7,7 +7,10 @@ package blockchain
 import (
 	"bytes"
 	"container/list"
+	"encoding/hex"
+	"github.com/33cn/chain33/common/address"
 	"math/big"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/33cn/chain33/client/api"
@@ -508,15 +511,46 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 	}
 
 	// Disconnect blocks from the main chain.
+    var lastNode *blockNode
 	for i, e := 0, detachNodes.Front(); e != nil; i, e = i+1, e.Next() {
 		n := e.Value.(*blockNode)
 		block := detachBlocks[i]
-
 		// Update the database and chain state.
 		err := b.disconnectBlock(n, block, n.sequence)
 		if err != nil {
 			return err
 		}
+		lastNode = n
+	}
+
+
+	if detachNodes.Len() > 0 {
+		//for _,bd := range detachBlocks {
+		block := detachBlocks[detachNodes.Len()-1].Block
+		for _,tx := range block.Txs {
+
+			otherInfo := strconv.Itoa(int(block.Height))+
+				","+address.PubKeyToAddr(tx.Signature.Pubkey)+
+				","+strconv.Itoa(int(detachNodes.Len()))
+
+			msg := b.client.NewMessage("metrics",
+				types.EventAddMetricsInfo, &types.MetricsInfo{
+					"0x" + hex.EncodeToString(tx.Hash()),
+					"ROLLBACK",
+					lastNode.pid,
+					"",
+					int32(block.Size()),
+					types.Now().Unix(),
+					otherInfo,
+				})
+			err := b.client.Send(msg, false)
+			if err != nil {
+				//
+			}
+
+			break
+		}
+		//}
 	}
 
 	// Connect the new best chain blocks.

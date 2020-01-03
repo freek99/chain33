@@ -15,6 +15,7 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"github.com/33cn/chain33/metrics"
 	"net/http"
 	_ "net/http/pprof" //
 	"os"
@@ -139,6 +140,8 @@ func RunChain33(name, defCfg string) {
 			}
 		}
 	}()
+
+
 	//set maxprocs
 	runtime.GOMAXPROCS(cpuNum)
 	//开始区块链模块加载
@@ -150,6 +153,12 @@ func RunChain33(name, defCfg string) {
 	log.Info("loading queue")
 	q := queue.New("channel")
 	q.SetConfig(chain33Cfg)
+
+
+	if cfg.P2P.EnableMetrics {
+		metrics := metrics.NewMetrics()
+		metrics.SetQueueClient(q.Client())
+	}
 
 	log.Info("loading mempool module")
 	mem := mempool.New(chain33Cfg)
@@ -202,6 +211,9 @@ func RunChain33(name, defCfg string) {
 
 	health := util.NewHealthCheckServer(q.Client())
 	health.Start(cfg.Health)
+
+
+
 	defer func() {
 		//close all module,clean some resource
 		log.Info("begin close health module")

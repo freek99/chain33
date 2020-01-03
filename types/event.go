@@ -168,6 +168,10 @@ const (
 	//通过平行链title获取平行链的交易
 	EventGetParaTxByTitle   = 306
 	EventReplyParaTxByTitle = 307
+
+	EventAddMetricsInfo     = 308
+	EventGetMetricsInfo     = 309
+	EventGetMetricsInfoReply     = 310
 )
 
 var eventName = map[int]string{
@@ -323,4 +327,6 @@ var eventName = map[int]string{
 	EventGetValueByKey:              "EventGetValueByKey",
 	EventGetParaTxByTitle:           "EventGetParaTxByTitle",
 	EventReplyParaTxByTitle:         "EventReplyParaTxByTitle",
+	EventAddMetricsInfo:             "EventAddMetricsInfo",
+	EventGetMetricsInfo:             "EventGetMetricsInfo",
 }

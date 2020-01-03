@@ -56,26 +56,73 @@ func (n *Node) processRecvP2P(data *types.BroadCastData, pid string, pubPeerFunc
 	}
 	handled = true
 	if tx := data.GetTx(); tx != nil {
-		n.bcCollector.Add(&types.PeersBroadInfo{
-			"0x" + hex.EncodeToString(tx.GetTx().Hash()),
+		hash := "0x" + hex.EncodeToString(tx.GetTx().Hash())
+		info := &types.MetricsInfo{
+			hash,
+			"RECV",
 			pid,
 			peerAddr,
 			int32(tx.GetTx().Size()),
 			types.Now().UnixNano(),
-		})
+			"",
+		}
+		msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo,info )
+		err := n.nodeInfo.client.Send(msg, false)
+		if err != nil {
+			//
+		}
+
 		n.recvTx(tx, pid, peerAddr)
 	} else if ltTx := data.GetLtTx(); ltTx != nil {
+		hash := "0x" + hex.EncodeToString(ltTx.TxHash)
+		info := &types.MetricsInfo{
+			hash,
+			"RECV",
+			pid,
+			peerAddr,
+			0,
+			types.Now().UnixNano(),
+			"",
+		}
+		msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo,info )
+		err := n.nodeInfo.client.Send(msg, false)
+		if err != nil {
+			//
+		}
 		n.recvLtTx(ltTx, pid, peerAddr, pubPeerFunc)
 	} else if ltBlc := data.GetLtBlock(); ltBlc != nil {
+		hash := "0x" + hex.EncodeToString(ltBlc.Header.Hash)
+		info := &types.MetricsInfo{
+			hash,
+			"RECV",
+			pid,
+			peerAddr,
+			0,
+			types.Now().UnixNano(),
+			"",
+		}
+		msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo,info )
+		err := n.nodeInfo.client.Send(msg, false)
+		if err != nil {
+			//
+		}
 		n.recvLtBlock(ltBlc, pid, peerAddr, pubPeerFunc)
 	} else if blc := data.GetBlock(); blc != nil {
-		n.bcCollector.Add(&types.PeersBroadInfo{
-			"0x" + hex.EncodeToString(blc.GetBlock().Hash(n.cfg)),
+		hash := "0x" + hex.EncodeToString(blc.GetBlock().Hash(n.cfg))
+		info := &types.MetricsInfo{
+			hash,
+			"RECV",
 			pid,
 			peerAddr,
 			int32(blc.GetBlock().Size()),
 			types.Now().UnixNano(),
-		})
+			"",
+		}
+		msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo,info )
+		err := n.nodeInfo.client.Send(msg, false)
+		if err != nil {
+			//
+		}
 		n.recvBlock(blc, pid, peerAddr)
 	} else if query := data.GetQuery(); query != nil {
 		n.recvQueryData(query, pid, peerAddr, pubPeerFunc)

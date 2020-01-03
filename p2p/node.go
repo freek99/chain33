@@ -6,7 +6,6 @@ package p2p
 
 import (
 	"fmt"
-	"github.com/33cn/chain33/p2p/metrics"
 	"math/rand"
 
 	//"strings"
@@ -68,19 +67,18 @@ func (n *Node) isClose() bool {
 
 // Node attribute
 type Node struct {
-	omtx       sync.Mutex
-	nodeInfo   *NodeInfo
-	cmtx       sync.Mutex
-	cacheBound map[string]*Peer
-	outBound   map[string]*Peer
-	server     *listener
-	listenPort int
-	innerSeeds sync.Map
-	cfgSeeds   sync.Map
-	closed     int32
-	pubsub     *pubsub.PubSub
-	cfg        *types.Chain33Config
-	bcCollector metrics.BroadcastCollector
+	omtx        sync.Mutex
+	nodeInfo    *NodeInfo
+	cmtx        sync.Mutex
+	cacheBound  map[string]*Peer
+	outBound    map[string]*Peer
+	server      *listener
+	listenPort  int
+	innerSeeds  sync.Map
+	cfgSeeds    sync.Map
+	closed      int32
+	pubsub      *pubsub.PubSub
+	cfg         *types.Chain33Config
 }
 
 // SetQueueClient return client for nodeinfo
@@ -96,7 +94,6 @@ func NewNode(cfg *types.Chain33Config) (*Node, error) {
 		cacheBound: make(map[string]*Peer),
 		pubsub:     pubsub.NewPubSub(10200),
 	}
-	node.bcCollector.Init()
 	node.listenPort = 13802
 	if mcfg.Port != 0 && mcfg.Port <= 65535 && mcfg.Port > 1024 {
 		node.listenPort = int(mcfg.Port)

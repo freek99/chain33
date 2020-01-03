@@ -11,7 +11,7 @@ import (
 type BroadcastViewer struct {
 }
 
-func (bv *BroadcastViewer) ExportToGraphVizData(replys map[string]*pb.PeersBroadInfoReply) []byte {
+func (bv *BroadcastViewer) ExportToGraphVizData(replys map[string]*pb.MetricsInfoReply) []byte {
 
 	graph := gographviz.NewGraph()
 	graphAst, _ := gographviz.Parse([]byte(`digraph G{}`))
@@ -21,7 +21,7 @@ func (bv *BroadcastViewer) ExportToGraphVizData(replys map[string]*pb.PeersBroad
 		for _, info := range reply.Infos {
 			tmpDstAddr := strings.Replace(fromIPPort, ":", ".", -1)
 			tmpDstAddr = strings.Replace(tmpDstAddr, ".", "", -1)
-			tmpSrcAddr := strings.Replace(info.SrcIPPort, ":", ".", -1)
+			tmpSrcAddr := strings.Replace(info.Src, ":", ".", -1)
 			tmpSrcAddr = strings.Replace(tmpSrcAddr, ".", "", -1)
 			attrs := make(map[string]string)
 			attrs["color"] = "blue"

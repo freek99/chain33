@@ -1,17 +1,18 @@
 package metrics
 
 import (
+	"net"
 	"testing"
+	"time"
 
 	"github.com/33cn/chain33/types"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test(t *testing.T) {
-	bc := &BroadcastCollector{}
-	bc.Init()
+	bc := NewMetricsCollector()
 
-	bc.Add(&types.PeersBroadInfo{
+	bc.Add("1111", &types.MetricsInfo{
 		"1111",
 		"aaaaa",
 		"172.20.0.6:13802",
@@ -19,17 +20,18 @@ func Test(t *testing.T) {
 		types.Now().UnixNano(),
 	})
 
-	bc.Add(&types.PeersBroadInfo{
+	bc.Add("2222", &types.MetricsInfo{
 		"2222",
 		"bbbbb",
 		"172.20.0.9:13802",
 		100,
 		types.Now().UnixNano(),
 	})
-	var hashs []string
-	hashs = append(hashs, "1111")
-	hashs = append(hashs, "2222")
-	reply := bc.Get(hashs)
+	var keys []string
+	keys = append(keys, "1111")
+	keys = append(keys, "2222")
+	reply := bc.Get(keys)
 
 	assert.Equal(t, true, len(reply) == 2)
+
 }

@@ -68,6 +68,7 @@ func New(cfg *types.Chain33Config) *P2p {
 		log.Error(err.Error())
 		return nil
 	}
+
 	p2p := new(P2p)
 	p2p.node = node
 	p2p.p2pCli = NewP2PCli(p2p)
@@ -341,7 +342,6 @@ func (network *P2p) subP2pMsg() {
 				}
 			}
 			switch msg.Ty {
-
 			case types.EventTxBroadcast: //广播tx
 				network.processEvent(msg, taskIndex, network.p2pCli.BroadCastTx)
 			case types.EventBlockBroadcast: //广播block

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"time"
+"time"
 
-	pb "github.com/33cn/chain33/types"
+pb "github.com/33cn/chain33/types"
 )
 
 type BroadcastStat struct {
@@ -16,7 +16,7 @@ type BroadcastStat struct {
 type BroadcastAnalyzer struct {
 }
 
-func (ba *BroadcastAnalyzer) Analyze(replys map[string]*pb.PeersBroadInfoReply) *BroadcastStat {
+func (ba *BroadcastAnalyzer) Analyze(replys map[string]*pb.MetricsInfoReply) *BroadcastStat {
 	startTime := int64(^uint64(0) >> 1)
 	endTime1 := int64(0)
 	endTime2 := int64(0)
@@ -27,28 +27,27 @@ func (ba *BroadcastAnalyzer) Analyze(replys map[string]*pb.PeersBroadInfoReply) 
 			continue
 		}
 
-		singleStartTime := int64(^uint64(0) >> 1)
+		subStartTime := int64(^uint64(0) >> 1)
 		for _, info := range reply.Infos {
-			if info.RecvTime < startTime {
-				startTime = info.RecvTime
+			if info.Time < startTime {
+				startTime = info.Time
 			}
 
-			if info.RecvTime < singleStartTime {
-				singleStartTime = info.RecvTime
+			if info.Time < subStartTime {
+				subStartTime = info.Time
 			}
 
-			if info.RecvTime > endTime2 {
-				endTime2 = info.RecvTime
+			if info.Time > endTime2 {
+				endTime2 = info.Time
 			}
 
 			size = size + info.Size
 			times++
 		}
 
-		if singleStartTime > endTime1 {
-			endTime1 = singleStartTime
+		if subStartTime > endTime1 {
+			endTime1 = subStartTime
 		}
-
 	}
 
 	duration1 := (endTime1 - startTime) / int64(time.Millisecond)

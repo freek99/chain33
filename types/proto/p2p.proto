@@ -52,7 +52,7 @@ service p2pgservice {
     rpc CollectInPeers(P2PPing) returns (PeerList) {}
     rpc CollectInPeers2(P2PPing) returns (PeersReply) {}
     // grpc 收集广播信息数据
-    rpc GetPeersBroadInfo(P2PPeersBroadInfoParams) returns (PeersBroadInfoReply) {}
+    rpc GetMetricsInfo(MetricsInfoParams) returns (MetricsInfoReply) {}
 }
 
 /**
@@ -376,24 +376,26 @@ message PeersInfo {
 }
 
 
-
 /**
  * p2p节点扫描返回的广播信息数据
  */
 
-message P2PPeersBroadInfoParams {
-    repeated string hashs = 1;
+message MetricsInfoParams {
+    repeated string Keys = 1;
+    string Action = 2;
 }
 
-message PeersBroadInfoReply {
-    repeated PeersBroadInfo infos = 1;
+message MetricsInfoReply {
+    repeated MetricsInfo infos = 1;
     repeated PeersInfo peers = 2;
 }
 
-message PeersBroadInfo {
-    string Hash  =1;
-    string SrcPID = 2;
-    string SrcIPPort = 3;
-    int32  Size  = 4;
-    int64  RecvTime = 5;
+message MetricsInfo {
+    string Key  =1;
+    string Action =2;
+    string SrcID = 3;
+    string Src = 4;
+    int32  Size  = 5;
+    int64  Time = 6;
+    string Other = 7;
 }

@@ -40,6 +40,7 @@ func (s *Store) insertMetrics(dstID string,dst string,info *pb.MetricsInfo)  {
 		return
 	}
 
+
 	execStr := "insert into Metrics(" +
 		"DstID,Dst,MKey,Action,SrcID,Src,Size,Time,Other) " +
 		"values(?,?,?,?,?,?,?,?,?)"

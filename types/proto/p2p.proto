@@ -380,22 +380,14 @@ message PeersInfo {
  * p2p节点扫描返回的广播信息数据
  */
 
-message MetricsInfoParams {
-    repeated string Keys = 1;
-    string Action = 2;
-}
-
-message MetricsInfoReply {
-    repeated MetricsInfo infos = 1;
-    repeated PeersInfo peers = 2;
-}
-
 message MetricsInfo {
-    string Key  =1;
-    string Action =2;
-    string SrcID = 3;
-    string Src = 4;
-    int32  Size  = 5;
-    int64  Time = 6;
-    string Other = 7;
+    string DstID =1;
+    string Dst   =2;
+    string Key  =3;
+    string Action =4;
+    string SrcID = 5;
+    string Src = 6;
+    int32  Size  = 7;
+    int64  Time = 8;
+    string Other = 9;
 }

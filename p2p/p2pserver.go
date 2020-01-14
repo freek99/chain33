@@ -6,7 +6,6 @@ package p2p
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -576,26 +575,6 @@ func (s *P2pserver) CollectInPeers2(ctx context.Context, in *pb.P2PPing) (*pb.Pe
 	return &pb.PeersReply{Peers: p2pPeers}, nil
 }
 
-// GetBroadcastData collect broadcast data
-func (s *P2pserver) GetMetricsInfo(ctx context.Context, in *pb.MetricsInfoParams) (*pb.MetricsInfoReply, error) {
-	if !s.node.nodeInfo.cfg.EnableMetrics {
-		return nil,errors.New("metrics not enable")
-	}
-	msg := s.node.nodeInfo.client.NewMessage("metrics", pb.EventGetMetricsInfo, in)
-	s.node.nodeInfo.client.Send(msg, true)
-	resp, err := s.node.nodeInfo.client.Wait(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	replys := resp.GetData().([]*pb.MetricsInfo)
-	if replys == nil {
-		return nil, errors.New("EventGetMetricsInfo error")
-	}
-
-	peers := s.getPeers()
-	return &pb.MetricsInfoReply{Infos: replys, Peers: peers}, nil
-}
 
 func (s *P2pserver) loadMempool() (map[string]*pb.Transaction, error) {
 

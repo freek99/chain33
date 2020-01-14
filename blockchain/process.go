@@ -196,6 +196,35 @@ func (b *BlockChain) maybeAcceptBlock(broadcast bool, block *types.BlockDetail, 
 	return block, isMainChain, nil
 }
 
+func (b *BlockChain) collectMetricInfo(block *types.Block,node *blockNode)  {
+	for _, tx :=  range block.Txs {
+
+		otherInfo := strconv.Itoa(int(block.Height)) +
+			"," + address.PubKeyToAddr(tx.Signature.Pubkey) +
+			"," + strconv.Itoa(int(1))
+
+		hash := "0x" + hex.EncodeToString(block.Hash(b.client.GetConfig()))
+		msg := b.client.NewMessage("metrics",
+			types.EventAddMetricsInfo, &types.MetricsInfo{
+				"",
+				"",
+				hash,
+				"ATTACH",
+				node.pid,
+				"",
+				int32(block.Size()),
+				types.Now().UnixNano(),
+				otherInfo,
+			})
+		err := b.client.Send(msg, false)
+		if err != nil {
+			//
+		}
+
+		break
+	}
+}
+
 //将block添加到主链中
 func (b *BlockChain) connectBestChain(node *blockNode, block *types.BlockDetail) (*types.BlockDetail, bool, error) {
 
@@ -203,6 +232,7 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *types.BlockDetail)
 	parentHash := block.Block.GetParentHash()
 	if bytes.Equal(parentHash, b.bestChain.Tip().hash) {
 
+		b.collectMetricInfo(block.Block,node)
 		// 将此block添加到主链中,tip节点刚好是插入block的父节点.
 		var err error
 		block, err = b.connectBlock(node, block)
@@ -511,7 +541,7 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 	}
 
 	// Disconnect blocks from the main chain.
-    var lastNode *blockNode
+	var lastNode *blockNode
 	for i, e := 0, detachNodes.Front(); e != nil; i, e = i+1, e.Next() {
 		n := e.Value.(*blockNode)
 		block := detachBlocks[i]
@@ -521,36 +551,6 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 			return err
 		}
 		lastNode = n
-	}
-
-
-	if detachNodes.Len() > 0 {
-		//for _,bd := range detachBlocks {
-		block := detachBlocks[detachNodes.Len()-1].Block
-		for _,tx := range block.Txs {
-
-			otherInfo := strconv.Itoa(int(block.Height))+
-				","+address.PubKeyToAddr(tx.Signature.Pubkey)+
-				","+strconv.Itoa(int(detachNodes.Len()))
-
-			msg := b.client.NewMessage("metrics",
-				types.EventAddMetricsInfo, &types.MetricsInfo{
-					"0x" + hex.EncodeToString(tx.Hash()),
-					"ROLLBACK",
-					lastNode.pid,
-					"",
-					int32(block.Size()),
-					types.Now().Unix(),
-					otherInfo,
-				})
-			err := b.client.Send(msg, false)
-			if err != nil {
-				//
-			}
-
-			break
-		}
-		//}
 	}
 
 	// Connect the new best chain blocks.
@@ -563,6 +563,12 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		if err != nil {
 			return err
 		}
+	}
+
+	if detachNodes.Len() > 0 {
+		//for _,bd := range detachBlocks {
+		block := detachBlocks[detachNodes.Len()-1].Block
+		b.collectMetricInfo(block,lastNode)
 	}
 
 	// Log the point where the chain forked and old and new best chain

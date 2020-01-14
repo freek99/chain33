@@ -169,9 +169,7 @@ const (
 	EventGetParaTxByTitle   = 306
 	EventReplyParaTxByTitle = 307
 
-	EventAddMetricsInfo     = 308
-	EventGetMetricsInfo     = 309
-	EventGetMetricsInfoReply     = 310
+	EventAddMetricsInfo      = 308
 )
 
 var eventName = map[int]string{
@@ -328,5 +326,4 @@ var eventName = map[int]string{
 	EventGetParaTxByTitle:           "EventGetParaTxByTitle",
 	EventReplyParaTxByTitle:         "EventReplyParaTxByTitle",
 	EventAddMetricsInfo:             "EventAddMetricsInfo",
-	EventGetMetricsInfo:             "EventGetMetricsInfo",
 }

@@ -141,7 +141,6 @@ func RunChain33(name, defCfg string) {
 		}
 	}()
 
-
 	//set maxprocs
 	runtime.GOMAXPROCS(cpuNum)
 	//开始区块链模块加载
@@ -154,9 +153,8 @@ func RunChain33(name, defCfg string) {
 	q := queue.New("channel")
 	q.SetConfig(chain33Cfg)
 
-
 	if cfg.P2P.EnableMetrics {
-		metrics := metrics.NewMetrics()
+		metrics := metrics.NewMetrics(cfg)
 		metrics.SetQueueClient(q.Client())
 	}
 
@@ -211,8 +209,6 @@ func RunChain33(name, defCfg string) {
 
 	health := util.NewHealthCheckServer(q.Client())
 	health.Start(cfg.Health)
-
-
 
 	defer func() {
 		//close all module,clean some resource

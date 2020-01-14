@@ -3,6 +3,7 @@ package p2p
 import (
 	"bytes"
 	"encoding/hex"
+	"strconv"
 	"time"
 
 	"github.com/33cn/chain33/common/merkle"
@@ -42,6 +43,27 @@ func (n *Node) processSendP2P(rawData interface{}, peerVersion int32, pid, peerA
 	return
 }
 
+func (n *Node) collectMetricsInfo(hash string,pid string,src string,size int32,ttl int32)  {
+	_, pubkey := n.nodeInfo.addrBook.GetPrivPubKey()
+
+	info := &types.MetricsInfo{
+		pubkey,
+		n.nodeInfo.listenAddr.String(),
+		hash,
+		"RECV",
+		pid,
+		src,
+		size,
+		types.Now().UnixNano(),
+		strconv.Itoa(int(ttl)),
+	}
+	msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo, info)
+	err := n.nodeInfo.client.Send(msg, false)
+	if err != nil {
+		//
+	}
+}
+
 func (n *Node) processRecvP2P(data *types.BroadCastData, pid string, pubPeerFunc pubFuncType, peerAddr string) (handled bool) {
 
 	//接收网络数据不可靠
@@ -55,74 +77,22 @@ func (n *Node) processRecvP2P(data *types.BroadCastData, pid string, pubPeerFunc
 		return false
 	}
 	handled = true
+
 	if tx := data.GetTx(); tx != nil {
 		hash := "0x" + hex.EncodeToString(tx.GetTx().Hash())
-		info := &types.MetricsInfo{
-			hash,
-			"RECV",
-			pid,
-			peerAddr,
-			int32(tx.GetTx().Size()),
-			types.Now().UnixNano(),
-			"",
-		}
-		msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo,info )
-		err := n.nodeInfo.client.Send(msg, false)
-		if err != nil {
-			//
-		}
-
+		n.collectMetricsInfo(hash,pid,peerAddr,int32(tx.GetTx().Size()),tx.Route.TTL)
 		n.recvTx(tx, pid, peerAddr)
 	} else if ltTx := data.GetLtTx(); ltTx != nil {
 		hash := "0x" + hex.EncodeToString(ltTx.TxHash)
-		info := &types.MetricsInfo{
-			hash,
-			"RECV",
-			pid,
-			peerAddr,
-			0,
-			types.Now().UnixNano(),
-			"",
-		}
-		msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo,info )
-		err := n.nodeInfo.client.Send(msg, false)
-		if err != nil {
-			//
-		}
+		n.collectMetricsInfo(hash,pid,peerAddr,0,ltTx.Route.TTL)
 		n.recvLtTx(ltTx, pid, peerAddr, pubPeerFunc)
 	} else if ltBlc := data.GetLtBlock(); ltBlc != nil {
 		hash := "0x" + hex.EncodeToString(ltBlc.Header.Hash)
-		info := &types.MetricsInfo{
-			hash,
-			"RECV",
-			pid,
-			peerAddr,
-			0,
-			types.Now().UnixNano(),
-			"",
-		}
-		msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo,info )
-		err := n.nodeInfo.client.Send(msg, false)
-		if err != nil {
-			//
-		}
+		n.collectMetricsInfo(hash,pid,peerAddr,0,0)
 		n.recvLtBlock(ltBlc, pid, peerAddr, pubPeerFunc)
 	} else if blc := data.GetBlock(); blc != nil {
 		hash := "0x" + hex.EncodeToString(blc.GetBlock().Hash(n.cfg))
-		info := &types.MetricsInfo{
-			hash,
-			"RECV",
-			pid,
-			peerAddr,
-			int32(blc.GetBlock().Size()),
-			types.Now().UnixNano(),
-			"",
-		}
-		msg := n.nodeInfo.client.NewMessage("metrics", types.EventAddMetricsInfo,info )
-		err := n.nodeInfo.client.Send(msg, false)
-		if err != nil {
-			//
-		}
+		n.collectMetricsInfo(hash,pid,peerAddr,int32(blc.GetBlock().Size()),0)
 		n.recvBlock(blc, pid, peerAddr)
 	} else if query := data.GetQuery(); query != nil {
 		n.recvQueryData(query, pid, peerAddr, pubPeerFunc)

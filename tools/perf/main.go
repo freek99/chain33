@@ -11,14 +11,14 @@ import (
 	"strings"
 
 	pb "github.com/33cn/chain33/types"
-	"google.golang.org/grpc"
 )
 
 // cmd parse
-var startAddr string
+var host string
 var key string
 var output string
 var perfType string
+var dbConfig string
 
 func execCmd(s string) {
 	cmd := exec.Command(`/bin/sh`, `-c`, s)
@@ -33,12 +33,13 @@ func execCmd(s string) {
 }
 
 func init() {
-	flag.StringVar(&startAddr, "startAddr", "", "start Address,for example:127.0.0.1:13802")
+	flag.StringVar(&host, "host", "", "host,for example:127.0.0.1:13802")
 	flag.StringVar(&key, "key", "", "when perfType=broadcast key is block hash or tx hash")
 	flag.StringVar(&output, "output", "",
 		"when perfType=broadcast output to png image file,for example:./my.png,"+
 			"when perfType=rollback output to a text file,for example :/rollback.txt")
 	flag.StringVar(&perfType, "perfType", "", "perfType value is 'broadcast' or 'rollback' ")
+	flag.StringVar(&dbConfig, "dbConfig", "", "db config  ")
 	flag.Parse()
 }
 
@@ -49,16 +50,16 @@ func main() {
 		return
 	}
 
-	if startAddr == "" {
-		fmt.Println("err=", "startAddr can't be empty")
-		return
-	}
-	if key == "" {
-		fmt.Println("err=", "key can't be empty")
+	if dbConfig == "" {
+		fmt.Println("err=", "dbConfig can't be empty")
 		return
 	}
 
 	if perfType == "rollback" {
+		if host == "" {
+			fmt.Println("err=", "host can't be empty")
+			return
+		}
 		if output != "" {
 			f, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 			if err != nil {
@@ -69,39 +70,46 @@ func main() {
 			log.SetOutput(f)
 		}
 	} else if perfType == "broadcast" {
+		if key == "" {
+			fmt.Println("err=", "key can't be empty")
+			return
+		}
 		if output == "" {
 			fmt.Println("err=", "output can't be empty")
 			return
 		}
 	}
 
-
-	var keys []string
-	keys = append(keys, key)
-	searcher := &Searcher{make(map[string]*grpc.ClientConn)}
-
+	db := &MetricsDB{}
+	if db.connect(dbConfig) {
+		fmt.Println("connect db success")
+	} else {
+		return
+	}
 
 	switch {
 	case perfType == "rollback":
-		monitor := &RollbackAnalyzer{}
-
-		addrs := strings.Split(startAddr, ",")
-		replyList := make(map[string]*pb.MetricsInfoReply)
+		addrs := strings.Split(host, ",")
+		replyList := make(map[string][]*pb.MetricsInfo)
 
 		for _, addr := range addrs {
-			replys := searcher.Search(addr, keys, false)
+			replys := db.searchRewardAction(addr)
 			for _, reply := range replys {
 				replyList[addr] = reply
 			}
 		}
-		monitor.Analyze(replyList)
+
+		analyzer := &RollbackAnalyzer{}
+		analyzer.Analyze(replyList)
+
 	case perfType == "broadcast":
-		replys := searcher.Search(startAddr, keys,true)
+		reply := db.searrchBroadcastAction(key)
+
+		//replys := searcher.Search(startAddr, keys, true)
 		analyzer := &BroadcastAnalyzer{}
-		stat := analyzer.Analyze(replys)
+		stat := analyzer.Analyze(reply)
 		fmt.Println(
-			"\nstartAddr=", startAddr,
-			"\nhash=", keys,
+			"\nhash=", key,
 			"\ntotalSize=", stat.TotalSize, "byte",
 			"\nduration1=", stat.Duration1, "ms",
 			"\nduration2=", stat.Duration2, "ms",
@@ -112,7 +120,7 @@ func main() {
 		gvPath := "/tmp/" + key + ".gv"
 
 		viewer := &BroadcastViewer{}
-		graphvizData := viewer.ExportToGraphVizData(replys)
+		graphvizData := viewer.ExportToGraphVizData(reply)
 		ioutil.WriteFile(gvPath, graphvizData, 0666)
 
 		// output to png image file

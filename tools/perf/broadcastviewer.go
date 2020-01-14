@@ -11,29 +11,25 @@ import (
 type BroadcastViewer struct {
 }
 
-func (bv *BroadcastViewer) ExportToGraphVizData(replys map[string]*pb.MetricsInfoReply) []byte {
-
+func (bv *BroadcastViewer) ExportToGraphVizData(infos []*pb.MetricsInfo) []byte {
 	graph := gographviz.NewGraph()
 	graphAst, _ := gographviz.Parse([]byte(`digraph G{}`))
 	gographviz.Analyse(graphAst, graph)
 
-	for fromIPPort, reply := range replys {
-		for _, info := range reply.Infos {
-			tmpDstAddr := strings.Replace(fromIPPort, ":", ".", -1)
-			tmpDstAddr = strings.Replace(tmpDstAddr, ".", "", -1)
-			tmpSrcAddr := strings.Replace(info.Src, ":", ".", -1)
-			tmpSrcAddr = strings.Replace(tmpSrcAddr, ".", "", -1)
-			attrs := make(map[string]string)
-			attrs["color"] = "blue"
-			//attrs["label"] = strings.Replace(tmpSrcAddr,".","x",-1)
-			graph.AddNode("G", tmpSrcAddr, attrs)
-			//attrs["label"] = strings.Replace(tmpDstAddr,".","x",-1)
-			graph.AddNode("G", tmpDstAddr, attrs)
-			attrs["color"] = "green"
-			attrs["label"] = strconv.Itoa(int(info.Size))
-			graph.AddEdge(tmpSrcAddr, tmpDstAddr, true, attrs)
-		}
-
+	for _, info := range infos {
+		tmpDstAddr := strings.Replace(info.Dst, ":", ".", -1)
+		tmpDstAddr = strings.Replace(tmpDstAddr, ".", "", -1)
+		tmpSrcAddr := strings.Replace(info.Src, ":", ".", -1)
+		tmpSrcAddr = strings.Replace(tmpSrcAddr, ".", "", -1)
+		attrs := make(map[string]string)
+		attrs["color"] = "blue"
+		//attrs["label"] = strings.Replace(tmpSrcAddr,".","x",-1)
+		graph.AddNode("G", tmpSrcAddr, attrs)
+		//attrs["label"] = strings.Replace(tmpDstAddr,".","x",-1)
+		graph.AddNode("G", tmpDstAddr, attrs)
+		attrs["color"] = "green"
+		attrs["label"] = strconv.Itoa(int(info.Size))
+		graph.AddEdge(tmpSrcAddr, tmpDstAddr, true, attrs)
 	}
 
 	return []byte(graph.String())

@@ -190,7 +190,9 @@ type P2P struct {
 	//固定连接节点，只连接配置项seeds中的节点
 	FixedSeed bool `protobuf:"varint,21,opt,name=fixedSeed" json:"fixedSeed,omitempty"`
 	//启用Metrics
-	EnableMetrics    bool `protobuf:"varint,22,opt,name=EnableMetrics" json:"EnableMetrics,omitempty"`
+	EnableMetrics bool `protobuf:"varint,22,opt,name=EnableMetrics" json:"EnableMetrics,omitempty"`
+	//Metrics DB Config
+	MetricsDB string `protobuf:"bytes,24,opt,name=MetricsDB" json:"MetricsDB,omitempty"`
 }
 
 // RPC 配置

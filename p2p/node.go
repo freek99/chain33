@@ -67,18 +67,18 @@ func (n *Node) isClose() bool {
 
 // Node attribute
 type Node struct {
-	omtx        sync.Mutex
-	nodeInfo    *NodeInfo
-	cmtx        sync.Mutex
-	cacheBound  map[string]*Peer
-	outBound    map[string]*Peer
-	server      *listener
-	listenPort  int
-	innerSeeds  sync.Map
-	cfgSeeds    sync.Map
-	closed      int32
-	pubsub      *pubsub.PubSub
-	cfg         *types.Chain33Config
+	omtx       sync.Mutex
+	nodeInfo   *NodeInfo
+	cmtx       sync.Mutex
+	cacheBound map[string]*Peer
+	outBound   map[string]*Peer
+	server     *listener
+	listenPort int
+	innerSeeds sync.Map
+	cfgSeeds   sync.Map
+	closed     int32
+	pubsub     *pubsub.PubSub
+	cfg        *types.Chain33Config
 }
 
 // SetQueueClient return client for nodeinfo

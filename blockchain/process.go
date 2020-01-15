@@ -196,7 +196,7 @@ func (b *BlockChain) maybeAcceptBlock(broadcast bool, block *types.BlockDetail, 
 	return block, isMainChain, nil
 }
 
-func (b *BlockChain) collectMetricInfo(block *types.Block,node *blockNode)  {
+func (b *BlockChain) collectMetricInfo(block *types.Block,node *blockNode,action string)  {
 	for _, tx :=  range block.Txs {
 
 		otherInfo := strconv.Itoa(int(block.Height)) +
@@ -209,7 +209,7 @@ func (b *BlockChain) collectMetricInfo(block *types.Block,node *blockNode)  {
 				"",
 				"",
 				hash,
-				"ATTACH",
+				action,
 				node.pid,
 				"",
 				int32(block.Size()),
@@ -231,8 +231,6 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *types.BlockDetail)
 	// 将此block插入到主链
 	parentHash := block.Block.GetParentHash()
 	if bytes.Equal(parentHash, b.bestChain.Tip().hash) {
-
-		b.collectMetricInfo(block.Block,node)
 		// 将此block添加到主链中,tip节点刚好是插入block的父节点.
 		var err error
 		block, err = b.connectBlock(node, block)
@@ -289,6 +287,11 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *types.BlockDetail)
 
 //将本block信息存储到数据库中，并更新bestchain的tip节点
 func (b *BlockChain) connectBlock(node *blockNode, blockdetail *types.BlockDetail) (*types.BlockDetail, error) {
+
+	defer func() {
+		b.collectMetricInfo(blockdetail.Block,node,"ATTACH")
+	}()
+
 	//blockchain close 时不再处理block
 	if atomic.LoadInt32(&b.isclosed) == 1 {
 		return nil, types.ErrIsClosed
@@ -553,6 +556,12 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		lastNode = n
 	}
 
+	if detachNodes.Len() > 0 {
+		//for _,bd := range detachBlocks {
+		block := detachBlocks[detachNodes.Len()-1].Block
+		b.collectMetricInfo(block,lastNode,"ROLLBACK")
+	}
+
 	// Connect the new best chain blocks.
 	for i, e := 0, attachNodes.Front(); e != nil; i, e = i+1, e.Next() {
 		n := e.Value.(*blockNode)
@@ -563,12 +572,6 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		if err != nil {
 			return err
 		}
-	}
-
-	if detachNodes.Len() > 0 {
-		//for _,bd := range detachBlocks {
-		block := detachBlocks[detachNodes.Len()-1].Block
-		b.collectMetricInfo(block,lastNode)
 	}
 
 	// Log the point where the chain forked and old and new best chain
